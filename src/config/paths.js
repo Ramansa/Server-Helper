@@ -6,6 +6,7 @@ const rootDir = path.resolve(__dirname, '..', '..');
 const config = {
   port: 8080,
   databasePath: path.join(rootDir, 'sites.json'),
+  usersPath: path.join(rootDir, 'users.json'),
   nginxSslDir: '/etc/nginx/ssl',
   nginxAvailableDir: '/etc/nginx/sites-available',
   nginxEnabledDir: '/etc/nginx/sites-enabled',

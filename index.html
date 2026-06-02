@@ -22,8 +22,45 @@
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans h-screen overflow-hidden flex">
+<body class="bg-slate-900 text-slate-100 font-sans h-screen overflow-hidden">
 
+    <!-- Authentication Screen -->
+    <div id="authScreen" class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-950 px-4">
+        <div class="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
+            <div class="mb-8 text-center">
+                <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
+                    <i data-lucide="lock-keyhole" class="h-8 w-8"></i>
+                </div>
+                <h1 id="authTitle" class="text-2xl font-bold">Log in to Server Helper</h1>
+                <p id="authSubtitle" class="mt-2 text-sm text-slate-400">Enter your username and password to continue.</p>
+            </div>
+
+            <form id="authForm" class="space-y-5">
+                <input type="hidden" id="authMode" value="login" />
+                <div>
+                    <label for="authUsername" class="mb-2 block text-sm font-medium text-slate-300">Username</label>
+                    <input id="authUsername" name="username" type="text" autocomplete="username" required
+                        class="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition-colors focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                        placeholder="admin" />
+                </div>
+                <div>
+                    <label for="authPassword" class="mb-2 block text-sm font-medium text-slate-300">Password</label>
+                    <input id="authPassword" name="password" type="password" autocomplete="current-password" required
+                        class="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition-colors focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                        placeholder="••••••••" />
+                    <p id="authPasswordHelp" class="mt-2 hidden text-xs text-slate-500">Password must be at least 8 characters long.</p>
+                </div>
+                <div id="authError" class="hidden rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300"></div>
+                <button type="submit" id="authSubmit"
+                    class="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 font-semibold text-white shadow-lg shadow-emerald-500/20 transition-colors hover:bg-emerald-500 active:scale-95">
+                    <i data-lucide="log-in" class="h-5 w-5"></i>
+                    Continue
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div id="appShell" class="hidden h-screen w-full overflow-hidden flex">
     <!-- Sidebar -->
     <div class="w-64 bg-slate-950 border-r border-slate-800 flex-col hidden md:flex">
         <div class="p-6 flex items-center gap-3">
@@ -54,10 +91,17 @@
                 <h2 class="text-2xl font-semibold">Virtual Hosts</h2>
                 <p class="text-sm text-slate-400">Manage Nginx configurations & ACME Let's Encrypt certificates.</p>
             </div>
-            <button id="btnAddNew" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
-                <i data-lucide="plus" class="w-5 h-5"></i>
-                Add New Site
-            </button>
+            <div class="flex items-center gap-3">
+                <div id="currentUser" class="hidden text-sm text-slate-400"></div>
+                <button id="btnLogout" class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2.5 rounded-lg font-medium transition-colors">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                    Logout
+                </button>
+                <button id="btnAddNew" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                    Add New Site
+                </button>
+            </div>
         </header>
 
         <!-- Content Area -->
@@ -113,6 +157,8 @@
                 </table>
             </div>
         </main>
+    </div>
+
     </div>
 
     <!-- Add / Edit Modal -->
@@ -451,6 +497,7 @@
                 : "http://localhost:8080/api/sites";
 
             const PHP_API_BASE = API_BASE.replace('/sites', '/php-versions');
+            const AUTH_API_BASE = API_BASE.replace('/sites', '/auth');
 
             // Track active site properties during updating phases
             let currentEditingSite = null;
@@ -469,6 +516,109 @@
                 }
                 return xhr.responseText || xhr.statusText || fallbackMsg;
             }
+
+            function setAuthMode(mode) {
+                const isRegister = mode === 'register';
+                $('#authMode').val(mode);
+                $('#authTitle').text(isRegister ? 'Create your admin account' : 'Log in to Server Helper');
+                $('#authSubtitle').text(isRegister
+                    ? 'No user exists yet. Create the first account to protect this server.'
+                    : 'Enter your username and password to continue.');
+                $('#authSubmit').html(isRegister
+                    ? '<i data-lucide="user-plus" class="h-5 w-5"></i> Create Account'
+                    : '<i data-lucide="log-in" class="h-5 w-5"></i> Log In');
+                $('#authPassword').attr('autocomplete', isRegister ? 'new-password' : 'current-password');
+                $('#authPasswordHelp').toggleClass('hidden', !isRegister);
+                if (window.lucide) window.lucide.createIcons();
+            }
+
+            function showAuth(mode) {
+                setAuthMode(mode);
+                $('#appShell').addClass('hidden');
+                $('#authScreen').removeClass('hidden').addClass('flex');
+                $('#authUsername').trigger('focus');
+            }
+
+            function showApp(user) {
+                $('#authScreen').addClass('hidden').removeClass('flex');
+                $('#appShell').removeClass('hidden');
+                if (user && user.username) {
+                    $('#currentUser').text(`Signed in as ${user.username}`).removeClass('hidden');
+                }
+                loadPhpVersions();
+                getSites();
+                if (window.lucide) window.lucide.createIcons();
+            }
+
+            function authErrorMessage(xhr, fallback) {
+                try {
+                    const parsed = JSON.parse(xhr.responseText || '{}');
+                    return parsed.error || fallback;
+                } catch (error) {
+                    return xhr.responseText || fallback;
+                }
+            }
+
+            function checkAuthStatus() {
+                $.ajax({
+                    url: `${AUTH_API_BASE}/status`,
+                    type: 'GET',
+                    success: function(status) {
+                        if (!status.hasUsers) {
+                            showAuth('register');
+                        } else if (status.authenticated) {
+                            showApp(status.user);
+                        } else {
+                            showAuth('login');
+                        }
+                    },
+                    error: function(xhr) {
+                        $('#authError').text(authErrorMessage(xhr, 'Unable to check login status.')).removeClass('hidden');
+                        showAuth('login');
+                    }
+                });
+            }
+
+            $('#authForm').on('submit', function(e) {
+                e.preventDefault();
+                const mode = $('#authMode').val();
+                $('#authError').addClass('hidden').text('');
+                $('#authSubmit').prop('disabled', true).addClass('opacity-70 cursor-not-allowed');
+
+                $.ajax({
+                    url: `${AUTH_API_BASE}/${mode}`,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        username: $('#authUsername').val(),
+                        password: $('#authPassword').val(),
+                    }),
+                    success: function(response) {
+                        $('#authPassword').val('');
+                        showApp(response.user);
+                    },
+                    error: function(xhr) {
+                        $('#authError').text(authErrorMessage(xhr, 'Authentication failed.')).removeClass('hidden');
+                    },
+                    complete: function() {
+                        $('#authSubmit').prop('disabled', false).removeClass('opacity-70 cursor-not-allowed');
+                    }
+                });
+            });
+
+            $('#btnLogout').on('click', function() {
+                $.ajax({
+                    url: `${AUTH_API_BASE}/logout`,
+                    type: 'POST',
+                    success: function() {
+                        $('#currentUser').addClass('hidden').text('');
+                        showAuth('login');
+                    },
+                    error: function(xhr) {
+                        alert(authErrorMessage(xhr, 'Logout failed.'));
+                    }
+                });
+            });
 
             // List elements
             function loadPhpVersions() {
@@ -1594,8 +1744,7 @@
                 }
             });
 
-            loadPhpVersions();
-            getSites();
+            checkAuthStatus();
         });
     </script>
 </body>

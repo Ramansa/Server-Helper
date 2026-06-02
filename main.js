@@ -3,12 +3,14 @@ const path = require('path');
 const apiRouter = require('./src/routes/api');
 const { initPaths, config, rootDir } = require('./src/config/paths');
 const { loadSites } = require('./src/state/sites');
+const { loadUsers } = require('./src/state/users');
 const { corsMiddleware } = require('./src/middleware/cors');
 const { authMiddleware } = require('./src/middleware/auth');
 
 async function start() {
   await initPaths();
   await loadSites();
+  await loadUsers();
 
   const app = express();
   app.use(express.json({ limit: '100mb' }));
