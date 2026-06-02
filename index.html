@@ -147,7 +147,7 @@
                             <th class="p-4">Type</th>
                             <th class="p-4 hidden md:table-cell">Target</th>
                             <th class="p-4 text-center">Nginx Status</th>
-                            <th class="p-4">SSL Status</th>
+                            <th class="p-4 text-center">SSL</th>
                             <th class="p-4 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -756,33 +756,45 @@
                         customBadge = `<span class="inline-flex items-center gap-1 bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded-full" title="Uses Raw Custom Configuration"><i data-lucide="settings" class="w-3 h-3"></i> Custom</span>`;
                     }
 
-                    let acmeStatusHtml = "";
-                    const sslManageLink = `<button class="btn-ssl-manage text-blue-400 text-[10px] font-medium hover:underline" data-id="${site.id}">Manage</button>`;
-                    if (site.acmeStatus === "issuing") {
-                        acmeStatusHtml = `<div class="flex items-center gap-2">
-                            <span class="inline-flex items-center gap-1.5 text-xs text-yellow-400 font-medium"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-ping"></span> SSL Status</span>
-                            <span class="text-slate-600">|</span>
-                            ${sslManageLink}
-                        </div>`;
-                    } else if (site.acmeStatus === "active") {
-                        acmeStatusHtml = `<div class="flex items-center gap-2">
-                            <span class="inline-flex items-center gap-1 text-xs text-emerald-400 font-medium"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> SSL Status</span>
-                            <span class="text-slate-600">|</span>
-                            ${sslManageLink}
-                        </div>`;
-                    } else if (site.acmeStatus === "failed") {
-                        acmeStatusHtml = `<div class="flex items-center gap-2">
-                            <span class="inline-flex items-center gap-1 text-xs text-red-400 font-medium"><i data-lucide="x-circle" class="w-3.5 h-3.5"></i> SSL Status</span>
-                            <span class="text-slate-600">|</span>
-                            ${sslManageLink}
-                        </div>`;
-                    } else {
-                        acmeStatusHtml = `<div class="flex items-center gap-2">
-                            <span class="inline-flex items-center gap-1 text-xs text-slate-400 font-medium"><i data-lucide="x-circle" class="w-3.5 h-3.5"></i> SSL Status</span>
-                            <span class="text-slate-600">|</span>
-                            ${sslManageLink}
-                        </div>`;
-                    }
+                    const sslManageLink = `<button class="btn-ssl-manage text-blue-400 text-xs font-medium hover:underline" data-id="${site.id}">Manage</button>`;
+                    const sslIconState = site.acmeStatus === "active" || site.ssl
+                        ? {
+                            icon: 'check-circle',
+                            color: 'text-emerald-400',
+                            bg: 'bg-emerald-500/10',
+                            border: 'border-emerald-500/20',
+                            label: 'SSL active',
+                        }
+                        : site.acmeStatus === "issuing"
+                            ? {
+                                icon: 'loader-circle',
+                                color: 'text-yellow-400',
+                                bg: 'bg-yellow-500/10',
+                                border: 'border-yellow-500/20',
+                                label: 'SSL issuing',
+                            }
+                            : site.acmeStatus === "failed"
+                                ? {
+                                    icon: 'x-circle',
+                                    color: 'text-red-400',
+                                    bg: 'bg-red-500/10',
+                                    border: 'border-red-500/20',
+                                    label: 'SSL failed',
+                                }
+                                : {
+                                    icon: 'x-circle',
+                                    color: 'text-slate-400',
+                                    bg: 'bg-slate-700/50',
+                                    border: 'border-slate-600',
+                                    label: 'SSL not installed',
+                                };
+                    const spinClass = site.acmeStatus === "issuing" ? 'animate-spin' : '';
+                    const acmeStatusHtml = `<div class="flex flex-col items-center gap-1.5">
+                        <button class="btn-ssl-manage inline-flex h-11 w-11 items-center justify-center rounded-full border ${sslIconState.bg} ${sslIconState.border} ${sslIconState.color} transition-colors hover:bg-slate-700" data-id="${site.id}" title="${sslIconState.label}" aria-label="Manage SSL for ${site.domain}">
+                            <i data-lucide="${sslIconState.icon}" class="h-7 w-7 ${spinClass}"></i>
+                        </button>
+                        ${sslManageLink}
+                    </div>`;
 
                     const row = `
                         <tr class="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors group">
@@ -814,7 +826,7 @@
                                     ${statusText}
                                 </button>
                             </td>
-                            <td class="p-4">
+                            <td class="p-4 text-center">
                                 ${acmeStatusHtml}
                             </td>
                             <td class="p-4 text-right">
@@ -1738,7 +1750,7 @@
             $('#sitesTableBody').on('click', '.btn-ssl-manage', function(e) {
                 e.preventDefault();
                 const id = $(this).data('id');
-                currentSslManageSite = currentSites.find(function(site) { return site.id === id; });
+                currentSslManageSite = currentSites.find(function(site) { return String(site.id) === String(id); });
                 if (!currentSslManageSite) return;
 
                 const isActive = currentSslManageSite.acmeStatus === "active";
