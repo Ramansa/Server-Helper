@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Helper</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans h-screen overflow-hidden flex">
+
+    <!-- Sidebar -->
+    <div class="w-64 bg-slate-950 border-r border-slate-800 flex-col hidden md:flex">
+        <div class="p-6 flex items-center gap-3">
+            <i data-lucide="server" class="text-emerald-500 w-8 h-8"></i>
+            <h1 class="text-xl font-bold tracking-tight">Server Helper</h1>
+        </div>
+        
+        <nav class="flex-1 px-4 space-y-2 mt-4">
+            <a href="#" class="flex items-center gap-3 px-4 py-3 bg-emerald-500/10 text-emerald-400 rounded-lg transition-colors">
+                <i data-lucide="globe" class="w-5 h-5"></i>
+                <span class="font-medium">Virtual Hosts</span>
+            </a>
+        </nav>
+
+        <div class="p-6 border-t border-slate-800">
+            <div class="flex items-center gap-3 text-sm text-slate-400">
+                <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)] animate-pulse"></div>
+                Backend Connected
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col h-full overflow-hidden">
+        <!-- Header -->
+        <header class="h-20 flex items-center justify-between px-8 bg-slate-900 border-b border-slate-800 shrink-0">
+            <div>
+                <h2 class="text-2xl font-semibold">Virtual Hosts</h2>
+                <p class="text-sm text-slate-400">Manage Nginx configurations & ACME Let's Encrypt certificates.</p>
+            </div>
+            <button id="btnAddNew" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
+                <i data-lucide="plus" class="w-5 h-5"></i>
+                Add New Site
+            </button>
+        </header>
+
+        <!-- Content Area -->
+        <main class="flex-1 overflow-auto p-8 relative">
+            
+            <!-- Stats Row -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex items-center gap-4">
+                    <div class="p-3 bg-blue-500/10 text-blue-400 rounded-lg">
+                        <i data-lucide="globe" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div id="statTotal" class="text-2xl font-bold">0</div>
+                        <div class="text-sm text-slate-400">Total Sites</div>
+                    </div>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex items-center gap-4">
+                    <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-lg">
+                        <i data-lucide="activity" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div id="statActive" class="text-2xl font-bold">0</div>
+                        <div class="text-sm text-slate-400">Active Sites</div>
+                    </div>
+                </div>
+                <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 flex items-center gap-4">
+                    <div class="p-3 bg-purple-500/10 text-purple-400 rounded-lg">
+                        <i data-lucide="shield" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <div id="statSsl" class="text-2xl font-bold">0</div>
+                        <div class="text-sm text-slate-400">SSL Active (acme.sh)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sites Table -->
+            <div class="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900/50 border-b border-slate-700 text-sm font-medium text-slate-400">
+                            <th class="p-4">Domain</th>
+                            <th class="p-4">Type</th>
+                            <th class="p-4 hidden md:table-cell">Target</th>
+                            <th class="p-4 text-center">Nginx Status</th>
+                            <th class="p-4">acme.sh SSL Status</th>
+                            <th class="p-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sitesTableBody">
+                        <!-- Rendered by jQuery -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add / Edit Modal -->
+    <div id="editModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden transition-opacity">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden transform transition-all flex flex-col max-h-[90vh]">
+            <div class="flex items-center justify-between p-6 border-b border-slate-800 bg-slate-950 shrink-0">
+                <h3 id="modalTitle" class="text-lg font-semibold">Add New Virtual Host</h3>
+                <button type="button" class="close-modal text-slate-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <form id="siteForm" class="p-6 overflow-y-auto flex-1 flex flex-col space-y-4">
+                <input type="hidden" id="siteId">
+                
+                <div class="space-y-1.5 shrink-0">
+                    <label class="text-sm font-medium text-slate-300">Domain Name</label>
+                    <input type="text" id="siteDomain" required placeholder="e.g. app.yourdomain.com"
+                        class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all text-white placeholder-slate-500"
+                    />
+                </div>
+
+                <!-- Editor Tabs -->
+                <div class="flex border-b border-slate-800 shrink-0">
+                    <button type="button" id="tabBasic" class="px-4 py-2.5 border-b-2 border-emerald-500 text-emerald-500 font-medium text-sm transition-colors">Basic Settings</button>
+                    <button type="button" id="tabRaw" class="px-4 py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-medium text-sm transition-colors">Raw Config Edit</button>
+                </div>
+
+                <!-- Basic Wrapper -->
+                <div id="basicSettingsWrapper" class="space-y-4 shrink-0">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-slate-300">Host Type</label>
+                            <select id="siteType" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all text-white appearance-none">
+                                <option value="proxy">Reverse Proxy</option>
+                                <option value="static">Static Site (Root)</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-slate-300">Listen Port</label>
+                            <input type="number" id="sitePort" required value="80"
+                                class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all text-white"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="phpContainer">
+                        <div class="space-y-1.5 col-span-2">
+                            <label class="text-sm font-medium text-slate-300">PHP Version</label>
+                            <select id="sitePhp" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all text-white appearance-none">
+                                <option value="none">None / Disabled</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label id="targetLabel" class="text-sm font-medium text-slate-300">Forward To (Proxy Pass URL)</label>
+                        <input type="text" id="siteTarget" placeholder="http://127.0.0.1:8080"
+                            class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all text-white placeholder-slate-500"
+                        />
+                    </div>
+                </div>
+
+                <!-- Raw Wrapper -->
+                <div id="rawSettingsWrapper" class="hidden space-y-3 flex-1 flex flex-col min-h-[300px]">
+                    <div class="flex items-center justify-between shrink-0">
+                        <label class="text-sm font-medium text-slate-300">Nginx Configuration</label>
+                        <button type="button" id="btnRegenerate" class="text-xs font-medium text-blue-400 hover:text-blue-300 hover:underline transition-colors">
+                            <i data-lucide="refresh-cw" class="w-3 h-3 inline mr-1"></i>Reset to Basic
+                        </button>
+                    </div>
+                    <textarea id="siteCustomConfig" spellcheck="false"
+                        class="flex-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-4 text-sm font-mono text-emerald-300 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 selection:bg-emerald-900 selection:text-white"
+                    ></textarea>
+                    <div class="text-xs text-slate-400 flex items-center gap-1.5 shrink-0">
+                        <i data-lucide="info" class="w-3.5 h-3.5"></i> If you edit this manually, Nginx will validate it upon saving.
+                    </div>
+                </div>
+
+                <!-- Error Banner for Nginx Test Failures -->
+                <div id="saveErrorBanner" class="hidden shrink-0 bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-xs font-mono whitespace-pre-wrap max-h-40 overflow-auto"></div>
+
+                <div class="pt-6 flex gap-3 shrink-0 mt-auto border-t border-slate-800">
+                    <button type="button" class="close-modal flex-1 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" id="btnSubmitModal" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg font-medium transition-colors">
+                        Save & Validate Config
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Config Modal (Read-Only) -->
+    <div id="configModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden transition-opacity">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="flex items-center justify-between p-6 border-b border-slate-800 bg-slate-950 shrink-0">
+                <div>
+                    <h3 class="text-lg font-semibold flex items-center gap-2">
+                        <i data-lucide="file-code" class="w-5 h-5 text-emerald-500"></i>
+                        Active Nginx Configuration
+                    </h3>
+                    <p id="configPath" class="text-xs text-slate-400 mt-1">/etc/nginx/sites-available/...</p>
+                </div>
+                <button type="button" class="close-config-modal text-slate-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-auto p-6 bg-slate-950/50">
+                <textarea id="configOutput" readonly class="w-full h-full min-h-[300px] bg-transparent resize-none text-sm text-emerald-300 font-mono whitespace-pre focus:outline-none selection:bg-emerald-900 selection:text-white" style="font-family: monospace;"></textarea>
+            </div>
+            
+            <div class="p-4 border-t border-slate-800 bg-slate-900 flex justify-between items-center shrink-0">
+                <div class="text-xs text-slate-400 flex items-center gap-2">
+                    <i data-lucide="hard-drive" class="w-4 h-4"></i>
+                    Configurations managed securely.
+                </div>
+                <button id="btnCopy" class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                    <i data-lucide="copy" class="w-4 h-4" id="copyIcon"></i>
+                    <span id="copyText">Copy Config</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terminal Action Modal (for acme.sh logging) -->
+    <div id="terminalModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden transition-opacity">
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div class="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-950">
+                <div class="flex items-center gap-2">
+                    <div class="flex gap-1.5">
+                        <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                        <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                        <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                    </div>
+                    <span class="font-mono text-sm ml-2 text-slate-300">acme.sh execution terminal</span>
+                </div>
+                <button type="button" id="closeTerminalBtn" class="text-slate-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 bg-black p-6 font-mono text-xs text-slate-300 overflow-auto whitespace-pre-wrap select-text h-[400px]">
+                <div id="terminalStatus" class="mb-4 text-yellow-400 flex items-center gap-2">
+                    <span class="animate-pulse">●</span> Executing Let's Encrypt routine...
+                </div>
+                <div id="terminalLog" class="text-slate-400">Loading terminal log stream...</div>
+            </div>
+
+            <div class="p-4 border-t border-slate-800 bg-slate-900 flex justify-end">
+                <button type="button" id="closeTerminalFooterBtn" class="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2 rounded-lg text-sm font-medium transition-all">
+                    Close Terminal
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Manager Modal -->
+    <div id="fileManagerModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden transition-opacity">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl shadow-2xl overflow-hidden flex flex-col h-[85vh]">
+            <!-- Header -->
+            <div class="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-950 shrink-0">
+                <div class="flex items-center gap-3">
+                    <i data-lucide="folder-open" class="text-emerald-500 w-6 h-6"></i>
+                    <div>
+                        <h3 class="text-lg font-semibold" id="fileManagerTitle">File Manager</h3>
+                        <div class="flex items-center gap-2 text-xs text-slate-400 mt-1">
+                            <span class="bg-slate-800 px-2 py-0.5 rounded font-mono" id="currentFilePath">/</span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="close-fm text-slate-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="p-4 bg-slate-900 border-b border-slate-800 flex flex-wrap gap-2 items-center justify-between shrink-0">
+                <div class="flex gap-2">
+                    <button id="btnFmBack" class="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-medium text-slate-200 transition-colors">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i> Back
+                    </button>
+                    <button id="btnFmNewFolder" class="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-medium text-slate-200 transition-colors">
+                        <i data-lucide="folder-plus" class="w-4 h-4"></i> New Folder
+                    </button>
+                    <button id="btnFmNewFile" class="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-medium text-slate-200 transition-colors">
+                        <i data-lucide="file-plus" class="w-4 h-4"></i> New File
+                    </button>
+                    <button id="btnFmUpload" class="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 rounded-lg text-xs font-medium text-white transition-colors">
+                        <i data-lucide="upload" class="w-4 h-4"></i> Upload File
+                    </button>
+                    <button id="btnFmDownloadUrl" class="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors" title="Download directly from external URL to server">
+                        <i data-lucide="link" class="w-4 h-4"></i> Remote Download
+                    </button>
+                    <input type="file" id="fmUploadInput" class="hidden" />
+                </div>
+                <div class="flex gap-2">
+                    <button id="btnFmBulkMove" class="hidden flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-medium text-white transition-colors" title="Cut selected items">
+                        <i data-lucide="scissors" class="w-4 h-4"></i> Cut Selected
+                    </button>
+                    <button id="btnFmPaste" class="hidden flex items-center gap-1.5 px-3 py-2 bg-teal-600 hover:bg-teal-500 rounded-lg text-xs font-medium text-white transition-colors" title="Paste cut items here">
+                        <i data-lucide="clipboard-paste" class="w-4 h-4"></i> Paste Here (<span id="fmClipboardCount">0</span>)
+                    </button>
+                    <button id="btnFmBulkCompress" class="hidden flex items-center gap-1.5 px-3 py-2 bg-orange-600 hover:bg-orange-500 rounded-lg text-xs font-medium text-white transition-colors">
+                        <i data-lucide="archive" class="w-4 h-4"></i> Zip Selected
+                    </button>
+                    <button id="btnFmBulkDelete" class="hidden flex items-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-xs font-medium text-white transition-colors">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i> Delete Selected
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main File List Pane -->
+            <div class="flex-1 overflow-auto bg-slate-950/30 p-4">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800 text-xs text-slate-400 uppercase font-semibold">
+                            <th class="p-3 w-10 text-center"><input type="checkbox" id="selectAllFmItems" class="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500" /></th>
+                            <th class="p-3">Name</th>
+                            <th class="p-3">Size</th>
+                            <th class="p-3">Permissions</th>
+                            <th class="p-3">Modified</th>
+                            <th class="p-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fmTableBody" class="text-sm">
+                        <!-- Dynamic files listing -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Text File Editor Modal -->
+    <div id="fmEditorModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden transition-opacity">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col h-[80vh]">
+            <div class="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-950 shrink-0">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="file-edit" class="text-emerald-500 w-5 h-5"></i>
+                    <h3 class="text-lg font-semibold" id="fmEditorTitle">Edit File</h3>
+                </div>
+                <button type="button" class="close-fm-editor text-slate-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="flex-1 p-4 bg-slate-950/50">
+                <textarea id="fmEditorTextarea" spellcheck="false" class="w-full h-full bg-slate-950 border border-slate-800 rounded-lg p-4 font-mono text-sm text-emerald-300 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 selection:bg-emerald-900 selection:text-white resize-none"></textarea>
+            </div>
+            <div class="p-4 border-t border-slate-800 bg-slate-900 flex justify-end gap-3 shrink-0">
+                <button type="button" class="close-fm-editor bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">Cancel</button>
+                <button type="button" id="btnFmSaveEditor" class="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition-colors">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Preview Lightbox Modal -->
+    <div id="fmPreviewModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden transition-opacity">
+        <div class="max-w-4xl w-full flex flex-col items-center">
+            <div class="w-full flex justify-between items-center mb-2 px-4 text-white">
+                <h3 id="fmPreviewTitle" class="text-sm font-semibold truncate max-w-md">Image Preview</h3>
+                <button type="button" id="closeFmPreviewBtn" class="text-slate-300 hover:text-white bg-slate-800/80 p-2 rounded-full transition-all">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="bg-slate-950/60 p-2 rounded-xl border border-slate-800 shadow-2xl flex items-center justify-center max-h-[75vh] max-w-full overflow-auto">
+                <img id="fmPreviewImg" src="" alt="Image Preview" class="max-h-[70vh] object-contain rounded-lg" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Permissions (chmod) Changer Modal -->
+    <div id="fmChmodModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden transition-opacity">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden transform transition-all">
+            <div class="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-950">
+                <h3 class="text-lg font-semibold">Edit Permissions</h3>
+                <button type="button" class="close-fm-chmod text-slate-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="text-sm font-medium text-slate-300">Chmod Octal value</label>
+                    <input type="text" id="fmChmodVal" value="0755" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 mt-1 text-sm font-mono text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500" />
+                </div>
+                <div class="grid grid-cols-3 gap-4 border-t border-b border-slate-800 py-4 text-xs font-semibold uppercase text-slate-400 text-center">
+                    <div>Owner</div>
+                    <div>Group</div>
+                    <div>Others</div>
+                </div>
+                <div class="grid grid-cols-3 gap-4 text-xs">
+                    <!-- Owner -->
+                    <div class="flex flex-col gap-2 bg-slate-950/30 p-2.5 rounded-lg">
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fmChmodOwnerR" checked class="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500" /> Read</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fmChmodOwnerW" checked class="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500" /> Write</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fmChmodOwnerX" checked class="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500" /> Exec</label>
+                    </div>
+                    <!-- Group -->
+                    <div class="flex flex-col gap-2 bg-slate-950/30 p-2.5 rounded-lg">
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fmChmodGroupR" checked class="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500" /> Read</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fmChmodGroupW" class="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500" /> Write</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fmChmodGroupX" checked class="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500" /> Exec</label>
+                    </div>
+                    <!-- Others -->
+                    <div class="flex flex-col gap-2 bg-slate-950/30 p-2.5 rounded-lg">
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fmChmodOtherR" checked class="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500" /> Read</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fmChmodOtherW" class="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500" /> Write</label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="fmChmodOtherX" checked class="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500" /> Exec</label>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2.5 pt-2">
+                    <input type="checkbox" id="fmChmodRecursive" class="rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500" />
+                    <label for="fmChmodRecursive" class="text-sm font-medium text-slate-300 cursor-pointer select-none">Apply recursively inside folders</label>
+                </div>
+                <div class="pt-4 flex gap-3">
+                    <button type="button" class="close-fm-chmod flex-1 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-lg font-medium text-sm transition-colors">Cancel</button>
+                    <button type="button" id="btnFmSaveChmod" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-lg font-medium text-sm transition-colors">Save Permissions</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Controller Logic -->
+    <script>
+        $(document).ready(function() {
+            if (window.lucide) {
+                window.lucide.createIcons();
+            } else {
+                console.error("Lucide icons library failed to load.");
+            }
+
+            // Dynamically evaluate server host location
+            const API_BASE = window.location.origin && window.location.origin !== "null" && window.location.protocol !== "file:"
+                ? window.location.origin + "/api/sites"
+                : "http://localhost:8080/api/sites";
+
+            const PHP_API_BASE = API_BASE.replace('/sites', '/php-versions');
+
+            // Track active site properties during updating phases
+            let currentEditingSite = null;
+            let userEditedTarget = false;
+            let useRawConfig = false;
+
+            // Track active file manager context state
+            let currentFmSiteId = null;
+            let currentFmPath = "/";
+            let fmClipboard = null; // { srcPath: "...", items: [...] }
+
+            // Helper to parse complex/network HTTP failures
+            function getErrorMessage(xhr, fallbackMsg) {
+                if (xhr.status === 0) {
+                    return "Could not connect to the backend API. Please make sure your Go application is running on port 8080 and CORS is allowed.";
+                }
+                return xhr.responseText || xhr.statusText || fallbackMsg;
+            }
+
+            // List elements
+            function loadPhpVersions() {
+                $.ajax({
+                    url: PHP_API_BASE,
+                    type: 'GET',
+                    success: function(versions) {
+                        const select = $('#sitePhp');
+                        select.empty();
+                        select.append('<option value="none">None / Disabled</option>');
+                        
+                        if (Array.isArray(versions) && versions.length > 0) {
+                            versions.forEach(function(v) {
+                                select.append(`<option value="${v}">PHP ${v}</option>`);
+                            });
+                        } else {
+                            ['7.4', '8.0', '8.1', '8.2', '8.3'].forEach(function(v) {
+                                select.append(`<option value="${v}">PHP ${v} (Manual)</option>`);
+                            });
+                        }
+                    },
+                    error: function(err) {
+                        console.warn("Failed to dynamically load PHP versions. Falling back to defaults.", err);
+                        const select = $('#sitePhp');
+                        select.empty();
+                        select.append('<option value="none">None / Disabled</option>');
+                        ['7.4', '8.0', '8.1', '8.2', '8.3'].forEach(function(v) {
+                            select.append(`<option value="${v}">PHP ${v}</option>`);
+                        });
+                    }
+                });
+            }
+
+            function getSites() {
+                $.ajax({
+                    url: API_BASE,
+                    type: 'GET',
+                    success: function(data) {
+                        renderTable(data);
+                    },
+                    error: function(xhr, status, err) {
+                        console.error("Failed to load virtual host list:", getErrorMessage(xhr, err));
+                    }
+                });
+            }
+
+            function renderTable(sites) {
+                const tbody = $('#sitesTableBody');
+                tbody.empty();
+
+                $('#statTotal').text(sites.length);
+                
+                let activeCount = 0;
+                let sslCount = 0;
+                sites.forEach(function(s) {
+                    if (s.enabled) activeCount++;
+                    if (s.ssl) sslCount++;
+                });
+
+                $('#statActive').text(activeCount);
+                $('#statSsl').text(sslCount);
+
+                if (sites.length === 0) {
+                    tbody.append(`
+                        <tr>
+                            <td colspan="6" class="p-8 text-center text-slate-500">
+                                No Nginx virtual hosts registered. Click "Add New Site" to start.
+                            </td>
+                        </tr>
+                    `);
+                    return;
+                }
+
+                sites.forEach(function(site) {
+                    const statusBtnClass = site.enabled 
+                        ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20' 
+                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600';
+                    const statusIcon = site.enabled ? 'play' : 'square';
+                    const statusText = site.enabled ? 'Active' : 'Offline';
+
+                    const typeClass = site.type === 'proxy'
+                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                        : 'bg-purple-500/10 text-purple-400 border border-purple-500/20';
+
+                    let sslBadge = site.ssl 
+                        ? `<span class="inline-flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full"><i data-lucide="shield" class="w-3 h-3"></i> Secure</span>`
+                        : `<span class="inline-flex items-center gap-1 bg-slate-800 border border-slate-700 text-slate-400 text-xs px-2 py-0.5 rounded-full"><i data-lucide="shield-alert" class="w-3 h-3"></i> Unsecured</span>`;
+
+                    let phpBadge = '';
+                    if (site.phpVersion && site.phpVersion !== 'none') {
+                        phpBadge = `<span class="inline-flex items-center gap-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs px-2 py-0.5 rounded-full"><i data-lucide="code" class="w-3 h-3"></i> PHP ${site.phpVersion}</span>`;
+                    }
+                    
+                    let customBadge = '';
+                    if (site.customConfig && site.customConfig.trim() !== '') {
+                        customBadge = `<span class="inline-flex items-center gap-1 bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded-full" title="Uses Raw Custom Configuration"><i data-lucide="settings" class="w-3 h-3"></i> Custom</span>`;
+                    }
+
+                    let acmeStatusHtml = "";
+                    if (site.acmeStatus === "issuing") {
+                        acmeStatusHtml = `<span class="text-xs text-yellow-400 font-medium flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-ping"></span> Issuing...</span>`;
+                    } else if (site.acmeStatus === "active") {
+                        acmeStatusHtml = `<div class="flex flex-col gap-1">
+                            <span class="text-xs text-emerald-400 font-medium flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> acme.sh (Active)</span>
+                            <div class="flex gap-1.5 text-[10px]">
+                                <button class="btn-ssl text-blue-400 hover:underline" data-id="${site.id}" data-action="renew">Renew</button><span class="text-slate-600">|</span>
+                                <button class="btn-ssl text-red-400 hover:underline" data-id="${site.id}" data-action="remove">Remove</button><span class="text-slate-600">|</span>
+                                <button class="btn-ssl text-slate-400 hover:underline" data-id="${site.id}" data-action="reinstall">Re-install</button>
+                            </div>
+                        </div>`;
+                    } else if (site.acmeStatus === "failed") {
+                        acmeStatusHtml = `<div class="flex flex-col gap-1">
+                            <span class="text-xs text-red-400 font-medium flex items-center gap-1"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Issue Failed</span>
+                            <button class="btn-ssl text-blue-400 text-[10px] hover:underline text-left" data-id="${site.id}" data-action="install">Retry Install</button>
+                        </div>`;
+                    } else {
+                        acmeStatusHtml = `<div class="flex flex-col gap-1">
+                            <span class="text-xs text-slate-400">No SSL Certificate</span>
+                            <button class="btn-ssl text-emerald-400 font-medium text-[10px] hover:underline text-left" data-id="${site.id}" data-action="install">+ Request with acme.sh</button>
+                        </div>`;
+                    }
+
+                    const row = `
+                        <tr class="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors group">
+                            <td class="p-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-2.5 h-2.5 rounded-full ${site.enabled ? 'bg-emerald-500' : 'bg-slate-600'}"></div>
+                                    <div>
+                                        <div class="font-medium text-slate-200">${site.domain}</div>
+                                        <div class="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2">
+                                            ${sslBadge}
+                                            ${phpBadge}
+                                            ${customBadge}
+                                            <span>Port: ${site.port}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="p-4">
+                                <span class="px-2.5 py-1 text-xs font-medium rounded-full ${typeClass}">
+                                    ${site.type.toUpperCase()}
+                                </span>
+                            </td>
+                            <td class="p-4 text-slate-400 text-sm hidden md:table-cell truncate max-w-[200px]" title="${site.target}">
+                                ${site.target}
+                            </td>
+                            <td class="p-4 text-center">
+                                <button class="btn-toggle inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${statusBtnClass}" data-id="${site.id}">
+                                    <i data-lucide="${statusIcon}" class="w-3 h-3"></i>
+                                    ${statusText}
+                                </button>
+                            </td>
+                            <td class="p-4">
+                                ${acmeStatusHtml}
+                            </td>
+                            <td class="p-4 text-right">
+                                <div class="flex items-center justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                                    <button class="btn-file-manager p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-colors" title="Browse Files" data-id="${site.id}" data-domain="${site.domain}">
+                                        <i data-lucide="folder-open" class="w-4 h-4"></i>
+                                    </button>
+                                    <button class="btn-view-config p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors" title="View Config" data-id="${site.id}">
+                                        <i data-lucide="file-code" class="w-4 h-4"></i>
+                                    </button>
+                                    <button class="btn-edit p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-colors" title="Edit Site" data-id="${site.id}">
+                                        <i data-lucide="edit-2" class="w-4 h-4"></i>
+                                    </button>
+                                    <button class="btn-delete p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors" title="Delete Site" data-id="${site.id}">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.append(row);
+                });
+
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            }
+
+            // --- Editor Tab Logic ---
+            $('#tabBasic').click(function() {
+                useRawConfig = false;
+                $(this).addClass('border-emerald-500 text-emerald-500').removeClass('border-transparent text-slate-400 hover:text-slate-200');
+                $('#tabRaw').removeClass('border-emerald-500 text-emerald-500').addClass('border-transparent text-slate-400 hover:text-slate-200');
+                $('#basicSettingsWrapper').removeClass('hidden');
+                $('#rawSettingsWrapper').addClass('hidden').removeClass('flex');
+                $('#siteTarget').prop('required', true);
+            });
+
+            $('#tabRaw').click(function() {
+                useRawConfig = true;
+                $(this).addClass('border-emerald-500 text-emerald-500').removeClass('border-transparent text-slate-400 hover:text-slate-200');
+                $('#tabBasic').removeClass('border-emerald-500 text-emerald-500').addClass('border-transparent text-slate-400 hover:text-slate-200');
+                $('#basicSettingsWrapper').addClass('hidden');
+                $('#rawSettingsWrapper').removeClass('hidden').addClass('flex');
+                $('#siteTarget').prop('required', false);
+
+                if ($('#siteCustomConfig').val().trim() === '') {
+                    $('#siteCustomConfig').val(buildPreviewConfig());
+                }
+            });
+
+            $('#btnRegenerate').click(function() {
+                if(confirm('This will wipe your raw editor and reset it to match the Basic Settings values. Continue?')) {
+                    $('#siteCustomConfig').val(buildPreviewConfig());
+                }
+            });
+
+            function buildPreviewConfig() {
+                const domain = $('#siteDomain').val().trim() || 'example.com';
+                const type = $('#siteType').val();
+                const port = $('#sitePort').val() || 80;
+                const phpVersion = $('#sitePhp').val();
+                const target = $('#siteTarget').val() || '/var/www/html';
+                const ssl = currentEditingSite ? currentEditingSite.ssl : false;
+
+                const listenPort = port;
+                const sslSection = ssl ? `\n    listen 443 ssl http2;\n    ssl_certificate /etc/nginx/ssl/${domain}.pem;\n    ssl_certificate_key /etc/nginx/ssl/${domain}.key;\n    ssl_protocols TLSv1.2 TLSv1.3;\n    ssl_ciphers HIGH:!aNULL:!MD5;` : '';
+                
+                let rootBlock = '';
+                let locationBlock = '';
+                if (type === 'proxy') {
+                    locationBlock = `    location / {\n        proxy_pass ${target};\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n        proxy_set_header X-Forwarded-Proto $scheme;\n    }`;
+                } else {
+                    rootBlock = `\n    root ${target};`;
+                    locationBlock = `    location / {\n        index index.html index.htm index.php;\n        try_files $uri $uri/ =404;\n    }`;
+                }
+
+                let phpLocationSection = '';
+                if (type === 'static' && phpVersion && phpVersion !== 'none') {
+                    phpLocationSection = `\n\n    location ~ \\.php$ {\n        fastcgi_split_path_info ^(.+\\.php)(/.+)$;\n        fastcgi_pass unix:/var/run/php/php${phpVersion}-fpm.sock;\n        fastcgi_index index.php;\n        include fastcgi_params;\n        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;\n        fastcgi_param PATH_INFO $fastcgi_path_info;\n    }`;
+                }
+                
+                return `server {\n    listen ${listenPort};${sslSection}\n    server_name ${domain};${rootBlock}\n\n${locationBlock}${phpLocationSection}\n\n    # Error Logs\n    error_log  /var/log/nginx/${domain}.error.log;\n    access_log /var/log/nginx/${domain}.access.log;\n}`;
+            }
+
+            // --- Form Inputs Dynamic Helpers ---
+            $('#siteTarget').on('input', function() {
+                userEditedTarget = $(this).val().trim() !== '';
+            });
+
+            $('#siteDomain').on('input', function() {
+                if ($('#siteType').val() === 'static' && !userEditedTarget) {
+                    let domain = $(this).val().trim() || 'domain.com';
+                    $('#siteTarget').val(`/www/${domain}/public_html`);
+                }
+            });
+
+            // Handle type changes
+            $('#siteType').on('change', function() {
+                if ($(this).val() === 'proxy') {
+                    $('#targetLabel').text('Forward To (Proxy Pass URL)');
+                    $('#siteTarget').attr('placeholder', 'http://127.0.0.1:8080');
+                    if (!userEditedTarget || $('#siteTarget').val().includes('/public_html')) {
+                        $('#siteTarget').val('');
+                        userEditedTarget = false;
+                    }
+                    $('#phpContainer').hide();
+                    $('#sitePhp').val('none');
+                } else {
+                    $('#targetLabel').text('Document Root Path');
+                    let domain = $('#siteDomain').val().trim() || 'domain.com';
+                    $('#siteTarget').attr('placeholder', `/www/${domain}/public_html`);
+                    if (!userEditedTarget || $('#siteTarget').val() === '') {
+                        $('#siteTarget').val(`/www/${domain}/public_html`);
+                    }
+                    $('#phpContainer').show();
+                }
+            });
+
+            // Open Modals
+            $('#btnAddNew').click(function() {
+                currentEditingSite = null;
+                userEditedTarget = false;
+                $('#siteForm')[0].reset();
+                $('#siteId').val('');
+                $('#sitePhp').val('none');
+                $('#siteCustomConfig').val('');
+                $('#saveErrorBanner').addClass('hidden').text('');
+                
+                $('#modalTitle').text('Add New Virtual Host');
+                $('#btnSubmitModal').text('Save & Validate Config');
+                $('#siteType').val('static').trigger('change');
+                
+                $('#tabBasic').click();
+                $('#editModal').removeClass('hidden');
+            });
+
+            // Close Modals
+            $('.close-modal').click(function() { $('#editModal').addClass('hidden'); });
+            $('.close-config-modal').click(function() { $('#configModal').addClass('hidden'); });
+
+            // CRUD - Create / Update Site
+            $('#siteForm').submit(function(e) {
+                e.preventDefault();
+                $('#saveErrorBanner').addClass('hidden').text('');
+                const id = $('#siteId').val();
+                
+                const siteData = currentEditingSite ? Object.assign({}, currentEditingSite) : {
+                    enabled: true,
+                    ssl: false,
+                    acmeStatus: "none",
+                    acmeLog: ""
+                };
+
+                siteData.domain = $('#siteDomain').val();
+                siteData.type = $('#siteType').val();
+                siteData.port = parseInt($('#sitePort').val()) || 80;
+                siteData.phpVersion = $('#sitePhp').val();
+                siteData.target = $('#siteTarget').val();
+                siteData.customConfig = useRawConfig ? $('#siteCustomConfig').val() : "";
+
+                const url = id ? `${API_BASE}/${id}` : API_BASE;
+                const type = id ? 'PUT' : 'POST';
+
+                const btn = $('#btnSubmitModal');
+                const btnOriginalText = btn.text();
+                btn.prop('disabled', true).text('Validating Nginx...');
+
+                $.ajax({
+                    url: url,
+                    type: type,
+                    contentType: 'application/json',
+                    data: JSON.stringify(siteData),
+                    success: function() {
+                        $('#editModal').addClass('hidden');
+                        getSites();
+                        btn.prop('disabled', false).text(btnOriginalText);
+                    },
+                    error: function(xhr, status, error) {
+                        btn.prop('disabled', false).text(btnOriginalText);
+                        let errText = getErrorMessage(xhr, error);
+                        $('#saveErrorBanner').removeClass('hidden').text("Nginx Validation Failed:\n" + errText);
+                        if (!useRawConfig) {
+                            $('#tabRaw').click();
+                        }
+                    }
+                });
+            });
+
+            // CRUD - Toggle Enabled/Disabled
+            $('#sitesTableBody').on('click', '.btn-toggle', function() {
+                const id = $(this).data('id');
+                $.ajax({
+                    url: `${API_BASE}/${id}/toggle`,
+                    type: 'POST',
+                    success: function() { getSites(); },
+                    error: function(xhr, status, error) { alert("Error switching Nginx site status: " + getErrorMessage(xhr, error)); }
+                });
+            });
+
+            // CRUD - Delete Site
+            $('#sitesTableBody').on('click', '.btn-delete', function() {
+                const id = $(this).data('id');
+                if (confirm("Are you sure you want to delete this configuration? This will remove files from sites-available and sites-enabled.")) {
+                    $.ajax({
+                        url: `${API_BASE}/${id}`,
+                        type: 'DELETE',
+                        success: function() { getSites(); },
+                        error: function(xhr, status, error) { alert("Error deleting site configuration: " + getErrorMessage(xhr, error)); }
+                    });
+                }
+            });
+
+            // Read Active Config
+            $('#sitesTableBody').on('click', '.btn-view-config', function() {
+                const id = $(this).data('id');
+                $.ajax({
+                    url: API_BASE,
+                    type: 'GET',
+                    success: function(sites) {
+                        const site = sites.find(function(s) { return s.id == id; });
+                        if (site) {
+                            $('#configPath').text(`/etc/nginx/sites-available/${site.domain}`);
+                            
+                            let fullConfig = '';
+                            if (site.customConfig && site.customConfig.trim() !== '') {
+                                fullConfig = site.customConfig;
+                            } else {
+                                // Fallback Generation
+                                const listenPort = site.port || 80;
+                                const sslSection = site.ssl ? `\n    listen 443 ssl http2;\n    ssl_certificate /etc/nginx/ssl/${site.domain}.pem;\n    ssl_certificate_key /etc/nginx/ssl/${site.domain}.key;` : '';
+                                
+                                let rootBlock = '';
+                                let locationBlock = '';
+                                if (site.type === 'proxy') {
+                                    locationBlock = `    location / {\n        proxy_pass ${site.target};\n        proxy_set_header Host $host;\n        proxy_set_header X-Real-IP $remote_addr;\n    }`;
+                                } else {
+                                    rootBlock = `\n    root ${site.target};`;
+                                    locationBlock = `    location / {\n        index index.html index.htm index.php;\n        try_files $uri $uri/ =404;\n    }`;
+                                }
+                                let phpLocationSection = (site.phpVersion && site.phpVersion !== 'none') 
+                                    ? `\n\n    location ~ \\.php$ {\n        fastcgi_split_path_info ^(.+\\.php)(/.+)$;\n        fastcgi_pass unix:/var/run/php/php${site.phpVersion}-fpm.sock;\n        fastcgi_index index.php;\n        include fastcgi_params;\n        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;\n        fastcgi_param PATH_INFO $fastcgi_path_info;\n    }` : '';
+                                fullConfig = `server {\n    listen ${listenPort};${sslSection}\n    server_name ${site.domain};${rootBlock}\n\n${locationBlock}${phpLocationSection}\n}`;
+                            }
+                            
+                            $('#configOutput').val(fullConfig);
+                            $('#configModal').removeClass('hidden');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert("Error viewing configuration: " + getErrorMessage(xhr, error));
+                    }
+                });
+            });
+
+            // Edit site data loading
+            $('#sitesTableBody').on('click', '.btn-edit', function() {
+                const id = $(this).data('id');
+                $.ajax({
+                    url: API_BASE,
+                    type: 'GET',
+                    success: function(sites) {
+                        const site = sites.find(function(s) { return s.id == id; });
+                        if (site) {
+                            currentEditingSite = site;
+                            userEditedTarget = true;
+                            
+                            $('#saveErrorBanner').addClass('hidden').text('');
+                            $('#siteId').val(site.id);
+                            $('#siteDomain').val(site.domain);
+                            $('#siteType').val(site.type).trigger('change');
+                            $('#sitePort').val(site.port);
+                            setTimeout(function() { $('#sitePhp').val(site.phpVersion || 'none'); }, 50);
+                            $('#siteTarget').val(site.target);
+                            
+                            if (site.customConfig && site.customConfig.trim() !== '') {
+                                $('#siteCustomConfig').val(site.customConfig);
+                                $('#tabRaw').click();
+                            } else {
+                                $('#siteCustomConfig').val('');
+                                $('#tabBasic').click();
+                            }
+                            
+                            $('#modalTitle').text('Edit Virtual Host');
+                            $('#btnSubmitModal').text('Save & Validate Config');
+                            $('#editModal').removeClass('hidden');
+                        }
+                    },
+                    error: function(xhr, status, error) { alert("Error loading site information: " + getErrorMessage(xhr, error)); }
+                });
+            });
+
+            // --- File Manager Functionality ---
+            $('#sitesTableBody').on('click', '.btn-file-manager', function() {
+                currentFmSiteId = $(this).data('id');
+                const domainName = $(this).data('domain');
+                currentFmPath = "/";
+                fmClipboard = null; // Clear clipboard on open
+                updateFmPasteButton();
+                $('#fileManagerTitle').text(`File Manager — ${domainName}`);
+                openFileManager();
+            });
+
+            function openFileManager() {
+                $('#fileManagerModal').removeClass('hidden');
+                loadFmDirectory();
+            }
+
+            $('.close-fm').click(function() {
+                $('#fileManagerModal').addClass('hidden');
+                fmClipboard = null;
+                updateFmPasteButton();
+            });
+
+            function loadFmDirectory() {
+                $('#selectAllFmItems').prop('checked', false);
+                toggleFmBulkActions();
+                
+                $('#currentFilePath').text(currentFmPath);
+                const tbody = $('#fmTableBody');
+                tbody.html('<tr><td colspan="6" class="p-4 text-center text-slate-400">Loading directory files...</td></tr>');
+
+                const listUrl = `${API_BASE}/${currentFmSiteId}/files/list?path=${encodeURIComponent(currentFmPath)}&_cb=${new Date().getTime()}`;
+
+                $.ajax({
+                    url: listUrl,
+                    type: 'GET',
+                    success: function(files) {
+                        tbody.empty();
+                        if (files.length === 0) {
+                            tbody.append('<tr><td colspan="6" class="p-8 text-center text-slate-500">This directory is completely empty.</td></tr>');
+                            return;
+                        }
+
+                        // Robust ES5 sorting
+                        files.sort(function(a, b) {
+                            if (a.isDir && !b.isDir) return -1;
+                            if (!a.isDir && b.isDir) return 1;
+                            return a.name.localeCompare(b.name);
+                        });
+
+                        files.forEach(function(file) {
+                            const icon = file.isDir ? 'folder' : 'file';
+                            const iconColor = file.isDir ? 'text-amber-400' : 'text-slate-400';
+                            const clickableClass = file.isDir ? 'fm-folder-click text-amber-400 font-medium cursor-pointer hover:underline' : 'fm-file-click cursor-pointer hover:underline text-slate-300';
+                            const sizeStr = file.isDir ? '-' : formatBytes(file.size);
+
+                            let actionButtons = `
+                                <button class="btn-fm-cut p-1.5 text-slate-400 hover:text-teal-400 rounded transition-colors" title="Cut" data-name="${file.name}">
+                                    <i data-lucide="scissors" class="w-4 h-4"></i>
+                                </button>
+                                <button class="btn-fm-rename p-1.5 text-slate-400 hover:text-blue-400 rounded transition-colors" title="Rename" data-name="${file.name}">
+                                    <i data-lucide="edit-3" class="w-4 h-4"></i>
+                                </button>
+                                <button class="btn-fm-chmod p-1.5 text-slate-400 hover:text-indigo-400 rounded transition-colors" title="Set Permissions" data-name="${file.name}" data-perm="${file.perm}">
+                                    <i data-lucide="key" class="w-4 h-4"></i>
+                                </button>
+                            `;
+
+                            if (file.name.endsWith('.zip') || file.name.endsWith('.gz') || file.name.endsWith('.tgz') || file.name.endsWith('.tar')) {
+                                actionButtons += `
+                                    <button class="btn-fm-unzip p-1.5 text-slate-400 hover:text-orange-400 rounded transition-colors" title="Decompress / Unpack" data-name="${file.name}">
+                                        <i data-lucide="archive-restore" class="w-4 h-4"></i>
+                                    </button>
+                                `;
+                            } else {
+                                actionButtons += `
+                                    <button class="btn-fm-zip p-1.5 text-slate-400 hover:text-orange-400 rounded transition-colors" title="Compress File" data-name="${file.name}">
+                                        <i data-lucide="archive" class="w-4 h-4"></i>
+                                    </button>
+                                `;
+                            }
+
+                            actionButtons += `
+                                <button class="btn-fm-download p-1.5 text-slate-400 hover:text-emerald-400 rounded transition-colors" title="Download" data-name="${file.name}">
+                                    <i data-lucide="download" class="w-4 h-4"></i>
+                                </button>
+                                <button class="btn-fm-delete p-1.5 text-slate-400 hover:text-red-400 rounded transition-colors" title="Delete" data-name="${file.name}">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            `;
+
+                            tbody.append(`
+                                <tr class="border-b border-slate-800 hover:bg-slate-800/40 transition-colors">
+                                    <td class="p-3 text-center">
+                                        <input type="checkbox" class="fm-item-checkbox rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500" data-name="${file.name}" />
+                                    </td>
+                                    <td class="p-3 flex items-center gap-2.5 max-w-xs truncate" title="${file.name}">
+                                        <i data-lucide="${icon}" class="${iconColor} w-4 h-4 shrink-0"></i>
+                                        <span class="${clickableClass}" data-name="${file.name}">${file.name}</span>
+                                    </td>
+                                    <td class="p-3 text-xs text-slate-400">${sizeStr}</td>
+                                    <td class="p-3 text-xs font-mono text-slate-400">${file.perm}</td>
+                                    <td class="p-3 text-xs text-slate-400">${file.modTime}</td>
+                                    <td class="p-3 text-right">
+                                        <div class="flex justify-end gap-1">
+                                            ${actionButtons}
+                                        </div>
+                                    </td>
+                                </tr>
+                            `);
+                        });
+                        
+                        if (window.lucide) {
+                            window.lucide.createIcons();
+                        }
+                    },
+                    error: function(xhr) { tbody.html(`<tr><td colspan="6" class="p-4 text-center text-red-500">${xhr.responseText || "Could not read directory data."}</td></tr>`); }
+                });
+            }
+
+            // Navigate directory
+            $('#fmTableBody').on('click', '.fm-folder-click', function() {
+                const folderName = $(this).data('name');
+                if (currentFmPath === "/") {
+                    currentFmPath = "/" + folderName;
+                } else {
+                    currentFmPath = currentFmPath + "/" + folderName;
+                }
+                loadFmDirectory();
+            });
+
+            // Back button
+            $('#btnFmBack').click(function() {
+                if (currentFmPath === "/") return;
+                const parts = currentFmPath.split('/');
+                parts.pop();
+                currentFmPath = parts.join('/') || "/";
+                loadFmDirectory();
+            });
+
+            // Create Directory
+            $('#btnFmNewFolder').click(function() {
+                let folderName = prompt("Enter new folder name:");
+                if (!folderName) return;
+                folderName = folderName.trim();
+                $.ajax({
+                    url: `${API_BASE}/${currentFmSiteId}/files/mkdir`,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ path: currentFmPath, name: folderName }),
+                    success: function() { loadFmDirectory(); },
+                    error: function(xhr) { alert("Failed to create folder: " + xhr.responseText); }
+                });
+            });
+
+            // Create File
+            $('#btnFmNewFile').click(function() {
+                let filename = prompt("Enter new filename (e.g. index.php):");
+                if (!filename) return;
+                filename = filename.trim();
+                const pathStr = currentFmPath === "/" ? "/" + filename : currentFmPath + "/" + filename;
+                $.ajax({
+                    url: `${API_BASE}/${currentFmSiteId}/files/write`,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ path: pathStr, content: " " }),
+                    success: function() { loadFmDirectory(); },
+                    error: function(xhr) { alert("Failed to create file: " + xhr.responseText); }
+                });
+            });
+
+            // Trigger upload input
+            $('#btnFmUpload').click(function() {
+                $('#fmUploadInput').click();
+            });
+
+            $('#fmUploadInput').change(function() {
+                const file = this.files[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                $.ajax({
+                    url: `${API_BASE}/${currentFmSiteId}/files/upload?path=${encodeURIComponent(currentFmPath)}`,
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function() {
+                        $('#fmUploadInput').val(''); // reset
+                        loadFmDirectory();
+                    },
+                    error: function(xhr) { alert("Failed to upload file: " + xhr.responseText); }
+                });
+            });
+
+            // Download directly from URL
+            $('#btnFmDownloadUrl').click(function() {
+                const url = prompt("Enter the remote URL to download:");
+                if (!url) return;
+                let defaultName = url.substring(url.lastIndexOf('/') + 1) || "downloaded_file";
+                if (defaultName.includes('?')) {
+                    defaultName = defaultName.split('?')[0];
+                }
+                const filename = prompt("Enter filename to save as on server:", defaultName);
+                if (!filename) return;
+
+                const btn = $(this);
+                btn.prop('disabled', true).text('Downloading...');
+
+                $.ajax({
+                    url: `${API_BASE}/${currentFmSiteId}/files/download-url`,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ path: currentFmPath, url: url, filename: filename }),
+                    success: function() {
+                        btn.prop('disabled', false).html('<i data-lucide="link" class="w-4 h-4"></i> Remote Download');
+                        if (window.lucide) {
+                            window.lucide.createIcons();
+                        }
+                        loadFmDirectory();
+                    },
+                    error: function(xhr) {
+                        btn.prop('disabled', false).html('<i data-lucide="link" class="w-4 h-4"></i> Remote Download');
+                        if (window.lucide) {
+                            window.lucide.createIcons();
+                        }
+                        alert("Download from URL failed: " + xhr.responseText);
+                    }
+                });
+            });
+
+            // Compression action
+            $('#fmTableBody').on('click', '.btn-fm-zip', function() {
+                const itemName = $(this).data('name');
+                const zipName = prompt("Enter destination archive filename:", itemName + ".zip");
+                if (!zipName) return;
+
+                $.ajax({
+                    url: `${API_BASE}/${currentFmSiteId}/files/compress`,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ path: currentFmPath, items: [itemName], type: 'zip', destName: zipName }),
+                    success: function() { loadFmDirectory(); },
+                    error: function(xhr) { alert("Compression failed: " + xhr.responseText); }
+                });
+            });
+
+            // Decompress zip / gz action
+            $('#fmTableBody').on('click', '.btn-fm-unzip', function() {
+                const filename = $(this).data('name');
+                if (!confirm(`Are you sure you want to extract "${filename}" in the current directory?`)) return;
+
+                $.ajax({
+                    url: `${API_BASE}/${currentFmSiteId}/files/decompress`,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ path: currentFmPath, file: filename }),
+                    success: function() { loadFmDirectory(); },
+                    error: function(xhr) { alert("Extraction failed: " + xhr.responseText); }
+                });
+            });
+
+            // Download file action
+            $('#fmTableBody').on('click', '.btn-fm-download', function() {
+                const filename = $(this).data('name');
+                const relPath = currentFmPath === "/" ? "/" + filename : currentFmPath + "/" + filename;
+                const downloadUrl = `${API_BASE}/${currentFmSiteId}/files/read?path=${encodeURIComponent(relPath)}`;
+                
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            });
+
+            // Delete File action
+            $('#fmTableBody').on('click', '.btn-fm-delete', function() {
+                const name = $(this).data('name');
+                if (!confirm(`Are you sure you want to permanently delete "${name}"?`)) return;
+
+                $.ajax({
+                    url: `${API_BASE}/${currentFmSiteId}/files/delete`,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ path: currentFmPath, name: name }),
+                    success: function() { loadFmDirectory(); },
+                    error: function(xhr) { alert("Deletion failed: " + xhr.responseText); }
+                });
+            });
+
+            // Rename File/Folder action
+            $('#fmTableBody').on('click', '.btn-fm-rename', function() {
+                const oldName = $(this).data('name');
+                let newName = prompt("Enter new name for: " + oldName, oldName);
+                if (!newName || newName.trim() === "" || newName === oldName) return;
+                
+                $.ajax({
+                    url: `${API_BASE}/${currentFmSiteId}/files/rename`,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ path: currentFmPath, oldName: oldName, newName: newName.trim() }),
+                    success: function() { loadFmDirectory(); },
+                    error: function(xhr) { alert("Failed to rename: " + xhr.responseText); }
+                });
+            });
+
+            // Click file: either preview or edit
+            $('#fmTableBody').on('click', '.fm-file-click', function() {
+                const filename = $(this).data('name');
+                const relPath = currentFmPath === "/" ? "/" + filename : currentFmPath + "/" + filename;
+                
+                if (isImageFile(filename)) {
+                    // Added a cache-buster parameter to image preview URLs
+                    const imgUrl = `${API_BASE}/${currentFmSiteId}/files/read?path=${encodeURIComponent(relPath)}&_cb=${new Date().getTime()}`;
+                    $('#fmPreviewTitle').text(filename);
+                    $('#fmPreviewImg').attr('src', imgUrl);
+                    $('#fmPreviewModal').removeClass('hidden');
+                } else {
+                    $('#fmEditorTitle').text(`Edit File: ${filename}`);
+                    $('#fmEditorTextarea').val('Loading file content...');
+                    $('#fmEditorModal').removeClass('hidden');
+
+                    const readUrl = `${API_BASE}/${currentFmSiteId}/files/read?path=${encodeURIComponent(relPath)}&_cb=${new Date().getTime()}`;
+
+                    $.ajax({
+                        url: readUrl,
+                        type: 'GET',
+                        cache: false, // Prevents browser from caching a previous 404 response
+                        dataType: 'text',
+                        success: function(content) {
+                            $('#fmEditorTextarea').val(content).data('path', relPath);
+                        },
+                        error: function(xhr) {
+                            alert("Failed to load file contents: " + xhr.responseText);
+                            $('#fmEditorModal').addClass('hidden');
+                        }
+                    });
+                }
+            });
+
+            // Save File Content Action
+            $('#btnFmSaveEditor').click(function() {
+                const relPath = $('#fmEditorTextarea').data('path');
+                const content = $('#fmEditorTextarea').val();
+
+                const writeUrl = `${API_BASE}/${currentFmSiteId}/files/write?path=${encodeURIComponent(relPath)}`;
+
+                $.ajax({
+                    url: writeUrl,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ content: content }),
+                    success: function() {
+                        $('#fmEditorModal').addClass('hidden');
+                        loadFmDirectory();
+                    },
+                    error: function(xhr) { alert("Failed to save changes: " + xhr.responseText); }
+                });
+            });
+
+            // Close File Editor
+            $('.close-fm-editor').click(function() {
+                $('#fmEditorModal').addClass('hidden');
+            });
+
+            // Close Image Preview
+            $('#closeFmPreviewBtn, #fmPreviewModal').click(function(e) {
+                if (e.target !== this && e.target !== document.getElementById('closeFmPreviewBtn') && !$(e.target).closest('#closeFmPreviewBtn').length) {
+                    return;
+                }
+                $('#fmPreviewModal').addClass('hidden');
+                $('#fmPreviewImg').attr('src', '');
+            });
+
+            // --- Permissions (chmod) Edit logic ---
+            let fmChmodTarget = "";
+            $('#fmTableBody').on('click', '.btn-fm-chmod', function() {
+                fmChmodTarget = $(this).data('name');
+                const permString = $(this).data('perm');
+                
+                const octal = parsePermToOctal(permString);
+                $('#fmChmodVal').val(octal);
+                updateChmodCheckboxesFromOctal(octal);
+
+                $('#fmChmodRecursive').prop('checked', false);
+                $('#fmChmodModal').removeClass('hidden');
+            });
+
+            $('.close-fm-chmod').click(function() {
+                $('#fmChmodModal').addClass('hidden');
+            });
+
+            // Checkbox value sync
+            $('#fmChmodModal').on('change', 'input[type="checkbox"]', function() {
+                if (this.id === "fmChmodRecursive") return;
+                const octal = calculateOctalFromCheckboxes();
+                $('#fmChmodVal').val(octal);
+            });
+
+            $('#fmChmodVal').on('input', function() {
+                const val = $(this).val();
+                if (/^[0-7]{4}$/.test(val)) {
+                    updateChmodCheckboxesFromOctal(val);
+                }
+            });
+
+            $('#btnFmSaveChmod').click(function() {
+                const octalVal = parseInt($('#fmChmodVal').val()) || 755;
+                const recursive = $('#fmChmodRecursive').is(':checked');
+
+                $.ajax({
+                    url: `${API_BASE}/${currentFmSiteId}/files/chmod`,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        path: currentFmPath,
+                        name: fmChmodTarget,
+                        mode: octalVal,
+                        recursive: recursive
+                    }),
+                    success: function() {
+                        $('#fmChmodModal').addClass('hidden');
+                        loadFmDirectory();
+                    },
+                    error: function(xhr) { alert("Failed to change permissions: " + xhr.responseText); }
+                });
+            });
+
+            // Helpers for octal conversion
+            function parsePermToOctal(str) {
+                if (!str || str.length < 9) {
+                    return "0644";
+                }
+                let s = str;
+                if (s.length === 10) {
+                    s = s.substring(1);
+                }
+                
+                let owner = (s[0] === 'r' ? 4 : 0) + (s[1] === 'w' ? 2 : 0) + (s[2] === 'x' ? 1 : 0);
+                let group = (s[3] === 'r' ? 4 : 0) + (s[4] === 'w' ? 2 : 0) + (s[5] === 'x' ? 1 : 0);
+                let other = (s[6] === 'r' ? 4 : 0) + (s[7] === 'w' ? 2 : 0) + (s[8] === 'x' ? 1 : 0);
+                return `0${owner}${group}${other}`;
+            }
+
+            function updateChmodCheckboxesFromOctal(octal) {
+                if (octal.length === 4) {
+                    octal = octal.substring(1);
+                }
+                const o = parseInt(octal[0]);
+                const g = parseInt(octal[1]);
+                const t = parseInt(octal[2]);
+
+                $('#fmChmodOwnerR').prop('checked', (o & 4) === 4);
+                $('#fmChmodOwnerW').prop('checked', (o & 2) === 2);
+                $('#fmChmodOwnerX').prop('checked', (o & 1) === 1);
+
+                $('#fmChmodGroupR').prop('checked', (g & 4) === 4);
+                $('#fmChmodGroupW').prop('checked', (g & 2) === 2);
+                $('#fmChmodGroupX').prop('checked', (g & 1) === 1);
+
+                $('#fmChmodOtherR').prop('checked', (t & 4) === 4);
+                $('#fmChmodOtherW').prop('checked', (t & 2) === 2);
+                $('#fmChmodOtherX').prop('checked', (t & 1) === 1);
+            }
+
+            // Calculate permissions
+            function calculateOctalFromCheckboxes() {
+                let o = ($('#fmChmodOwnerR').is(':checked') ? 4 : 0) + ($('#fmChmodOwnerW').is(':checked') ? 2 : 0) + ($('#fmChmodOwnerX').is(':checked') ? 1 : 0);
+                let g = ($('#fmChmodGroupR').is(':checked') ? 4 : 0) + ($('#fmChmodGroupW').is(':checked') ? 2 : 0) + ($('#fmChmodGroupX').is(':checked') ? 1 : 0);
+                let t = ($('#fmChmodOtherR').is(':checked') ? 4 : 0) + ($('#fmChmodOtherW').is(':checked') ? 2 : 0) + ($('#fmChmodOtherX').is(':checked') ? 1 : 0);
+                return `0${o}${g}${t}`;
+            }
+
+            // --- Single and Bulk Cut / Move Actions ---
+            $('#fmTableBody').on('click', '.btn-fm-cut', function() {
+                const name = $(this).data('name');
+                fmClipboard = {
+                    srcPath: currentFmPath,
+                    items: [name]
+                };
+                updateFmPasteButton();
+            });
+
+            $('#btnFmBulkMove').click(function() {
+                const checkedItems = $('.fm-item-checkbox:checked');
+                let itemsList = [];
+                checkedItems.each(function() {
+                    itemsList.push($(this).data('name'));
+                });
+                fmClipboard = {
+                    srcPath: currentFmPath,
+                    items: itemsList
+                };
+                
+                $('#selectAllFmItems').prop('checked', false);
+                $('.fm-item-checkbox').prop('checked', false);
+                toggleFmBulkActions();
+                updateFmPasteButton();
+            });
+
+            $('#btnFmPaste').click(function() {
+                if (!fmClipboard || fmClipboard.items.length === 0) return;
+                
+                const btn = $(this);
+                btn.prop('disabled', true).text('Moving...');
+
+                $.ajax({
+                    url: `${API_BASE}/${currentFmSiteId}/files/move`,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        srcPath: fmClipboard.srcPath,
+                        path: currentFmPath,
+                        items: fmClipboard.items
+                    }),
+                    success: function() {
+                        btn.prop('disabled', false).html('<i data-lucide="clipboard-paste" class="w-4 h-4"></i> Paste Here (<span id="fmClipboardCount">0</span>)');
+                        if (window.lucide) {
+                            window.lucide.createIcons();
+                        }
+                        fmClipboard = null;
+                        updateFmPasteButton();
+                        loadFmDirectory();
+                    },
+                    error: function(xhr) {
+                        btn.prop('disabled', false).html('<i data-lucide="clipboard-paste" class="w-4 h-4"></i> Paste Here (<span id="fmClipboardCount">0</span>)');
+                        if (window.lucide) {
+                            window.lucide.createIcons();
+                        }
+                        alert("Move operation failed: " + xhr.responseText);
+                    }
+                });
+            });
+
+            function updateFmPasteButton() {
+                if (fmClipboard && fmClipboard.items.length > 0) {
+                    $('#btnFmPaste').removeClass('hidden');
+                    $('#fmClipboardCount').text(fmClipboard.items.length);
+                } else {
+                    $('#btnFmPaste').addClass('hidden');
+                }
+            }
+
+            // --- Bulk Action Events Handling ---
+            $('#selectAllFmItems').change(function() {
+                const checked = $(this).is(':checked');
+                $('.fm-item-checkbox').prop('checked', checked);
+                toggleFmBulkActions();
+            });
+
+            $('#fmTableBody').on('change', '.fm-item-checkbox', function() {
+                toggleFmBulkActions();
+            });
+
+            function toggleFmBulkActions() {
+                const checkedCount = $('.fm-item-checkbox:checked').length;
+                if (checkedCount > 0) {
+                    $('#btnFmBulkCompress, #btnFmBulkMove, #btnFmBulkDelete').removeClass('hidden');
+                } else {
+                    $('#btnFmBulkCompress, #btnFmBulkMove, #btnFmBulkDelete').addClass('hidden');
+                }
+            }
+
+            // Bulk Delete Action
+            $('#btnFmBulkDelete').click(function() {
+                const checkedItems = $('.fm-item-checkbox:checked');
+                if (!confirm(`Are you sure you want to permanently delete all ${checkedItems.length} selected item(s)?`)) return;
+
+                let promises = [];
+                checkedItems.each(function() {
+                    const name = $(this).data('name');
+                    promises.push(
+                        $.ajax({
+                            url: `${API_BASE}/${currentFmSiteId}/files/delete`,
+                            type: 'POST',
+                            contentType: 'application/json',
+                            data: JSON.stringify({ path: currentFmPath, name: name })
+                        })
+                    );
+                });
+
+                Promise.all(promises).then(function() {
+                    loadFmDirectory();
+                }).catch(function(err) {
+                    alert("One or more deletion actions failed.");
+                    loadFmDirectory();
+                });
+            });
+
+            // Bulk Zip Action
+            $('#btnFmBulkCompress').click(function() {
+                const checkedItems = $('.fm-item-checkbox:checked');
+                const zipName = prompt("Enter name for the destination ZIP archive:", "archive.zip");
+                if (!zipName) return;
+
+                let itemsList = [];
+                checkedItems.each(function() {
+                    itemsList.push($(this).data('name'));
+                });
+
+                $.ajax({
+                    url: `${API_BASE}/${currentFmSiteId}/files/compress`,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ path: currentFmPath, items: itemsList, type: 'zip', destName: zipName }),
+                    success: function() { loadFmDirectory(); },
+                    error: function(xhr) { alert("Bulk compression failed: " + xhr.responseText); }
+                });
+            });
+
+            // --- Utility Functions ---
+            function isImageFile(filename) {
+                const ext = filename.split('.').pop().toLowerCase();
+                return ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico'].includes(ext);
+            }
+
+            function formatBytes(bytes, decimals = 2) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const dm = decimals < 0 ? 0 : decimals;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+            }
+
+            // --- SSL / Let's Encrypt / acme.sh Actions Interface ---
+            $('#sitesTableBody').on('click', '.btn-ssl', function(e) {
+                e.preventDefault();
+                const id = $(this).data('id');
+                const action = $(this).data('action');
+
+                if (!confirm("Are you sure you want to execute this acme.sh action?")) return;
+
+                $('#terminalModal').removeClass('hidden');
+                $('#terminalStatus').html(`<span class="animate-pulse text-yellow-500">●</span> Running acme.sh [${action.toUpperCase()}] against your environment...`);
+                $('#terminalLog').text("Contacting backend API, initiating request...\nThis can take 30-40 seconds for HTTP validation loops.");
+
+                $.ajax({
+                    url: `${API_BASE}/${id}/ssl`,
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ action: action }),
+                    success: function(res) {
+                        $('#terminalStatus').html(`<span class="text-emerald-500">✔</span> acme.sh successfully processed request.`);
+                        $('#terminalLog').text(res.output);
+                        getSites();
+                    },
+                    error: function(xhr, status, error) {
+                        $('#terminalStatus').html(`<span class="text-red-500">✖</span> acme.sh execution failed.`);
+                        let logText = "";
+                        try {
+                            const errObj = JSON.parse(xhr.responseText);
+                            logText = errObj.output + "\n\nError: " + errObj.error;
+                        } catch(e) {
+                            logText = getErrorMessage(xhr, error) || "An unknown network timeout or error occurred.";
+                        }
+                        $('#terminalLog').text(logText);
+                        getSites();
+                    }
+                });
+            });
+
+            $('#closeTerminalBtn, #closeTerminalFooterBtn').click(function() {
+                $('#terminalModal').addClass('hidden');
+            });
+
+            $('#btnCopy').click(function() {
+                const textarea = document.getElementById('configOutput');
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    $('#copyText').text('Copied!');
+                    setTimeout(function() { $('#copyText').text('Copy Config'); }, 2000);
+                } catch (err) {
+                    alert("Copy function unavailable");
+                }
+            });
+
+            loadPhpVersions();
+            getSites();
+        });
+    </script>
+</body>
+</html>

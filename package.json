@@ -1,0 +1,29 @@
+{
+  "name": "server-helper",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "node main.js",
+    "test": "node --check main.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/my-git-hub-2025/Server-Helper.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/my-git-hub-2025/Server-Helper/issues"
+  },
+  "homepage": "https://github.com/my-git-hub-2025/Server-Helper#readme",
+  "dependencies": {
+    "archiver": "^8.0.0",
+    "express": "^5.2.1",
+    "multer": "^2.1.1",
+    "tar": "^7.5.15",
+    "unzipper": "^0.12.3"
+  }
+}

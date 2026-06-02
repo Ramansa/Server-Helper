@@ -1,0 +1,15 @@
+[
+  {
+    "id": "1",
+    "domain": "api.example.com",
+    "type": "proxy",
+    "port": 80,
+    "phpVersion": "none",
+    "target": "http://localhost:3000",
+    "ssl": false,
+    "enabled": true,
+    "acmeStatus": "none",
+    "acmeLog": "",
+    "customConfig": ""
+  }
+]
