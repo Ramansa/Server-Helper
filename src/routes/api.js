@@ -10,8 +10,14 @@ const {
   sslSiteHandler,
 } = require('../handlers/sites');
 const { uploadMiddleware, fileRouter } = require('../handlers/files');
+const { loginHandler, logoutHandler, registerHandler, statusHandler } = require('../handlers/auth');
 
 const router = express.Router();
+
+router.get('/auth/status', statusHandler);
+router.post('/auth/register', registerHandler);
+router.post('/auth/login', loginHandler);
+router.post('/auth/logout', logoutHandler);
 
 router.get('/php-versions', phpVersionsHandler);
 router.get('/nginx/config', nginxConfigGetHandler);
