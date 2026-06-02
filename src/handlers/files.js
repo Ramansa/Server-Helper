@@ -30,7 +30,7 @@ async function fileRouter(req, res, actionOverride) {
   }
 
   const siteRoot = await getSiteRoot(site);
-  const action = actionOverride || req.params.action || '';
+  const action = typeof actionOverride === 'string' ? actionOverride : req.params.action || '';
 
   try {
     switch (action) {
