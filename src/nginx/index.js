@@ -1,6 +1,7 @@
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
+const { X509Certificate } = require('crypto');
 const { execFile } = require('child_process');
 const { config } = require('../config/paths');
 const { createMutex } = require('../utils/mutex');
@@ -286,6 +287,55 @@ async function writeNginxMainConfig(content) {
   }
 }
 
+
+async function getSslCertificateDetails(domain) {
+  const certificatePath = path.join(config.nginxSslDir, `${domain}.pem`);
+  const keyPath = path.join(config.nginxSslDir, `${domain}.key`);
+  const details = {
+    domain,
+    certificatePath,
+    keyPath,
+    exists: false,
+    subject: '',
+    issuer: '',
+    validFrom: '',
+    validTo: '',
+    expired: false,
+    daysRemaining: null,
+    serialNumber: '',
+    fingerprint256: '',
+    subjectAltName: '',
+  };
+
+  let pem;
+  try {
+    pem = await fsp.readFile(certificatePath, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return details;
+    }
+    throw error;
+  }
+
+  const cert = new X509Certificate(pem);
+  const expiresAt = new Date(cert.validTo);
+  const now = new Date();
+  const msRemaining = expiresAt.getTime() - now.getTime();
+
+  details.exists = true;
+  details.subject = cert.subject;
+  details.issuer = cert.issuer;
+  details.validFrom = cert.validFrom;
+  details.validTo = cert.validTo;
+  details.expired = msRemaining <= 0;
+  details.daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+  details.serialNumber = cert.serialNumber;
+  details.fingerprint256 = cert.fingerprint256;
+  details.subjectAltName = cert.subjectAltName || '';
+
+  return details;
+}
+
 async function runAcme(domain, action) {
   if (config.isMockMode) {
     return { output: `[Mock] SSL '${action}' for ${domain}`, error: null };
@@ -374,4 +424,5 @@ module.exports = {
   readNginxMainConfig,
   writeNginxMainConfig,
   runAcme,
+  getSslCertificateDetails,
 };

@@ -306,6 +306,10 @@
                     <span class="flex items-center gap-2"><i data-lucide="file-search" class="w-4 h-4 text-blue-400"></i> View cert</span>
                     <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
                 </button>
+                <button type="button" class="ssl-manage-action w-full flex items-center justify-between gap-3 bg-slate-800 hover:bg-slate-700 text-slate-100 px-4 py-3 rounded-lg text-sm font-medium transition-colors" data-action="logs">
+                    <span class="flex items-center gap-2"><i data-lucide="scroll-text" class="w-4 h-4 text-purple-400"></i> View logs</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                </button>
                 <button type="button" class="ssl-manage-action w-full flex items-center justify-between gap-3 bg-slate-800 hover:bg-slate-700 text-slate-100 px-4 py-3 rounded-lg text-sm font-medium transition-colors" data-action="renew">
                     <span class="flex items-center gap-2"><i data-lucide="refresh-cw" class="w-4 h-4 text-emerald-400"></i> Renew</span>
                     <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
@@ -1769,6 +1773,43 @@
                 $('#sslManageModal').addClass('hidden');
             });
 
+
+            function formatSslCertificateDetails(certificate) {
+                if (!certificate || !certificate.exists) {
+                    const pathText = certificate && certificate.certificatePath ? `\nCertificate path: ${certificate.certificatePath}` : '';
+                    return `No SSL certificate file was found for this site.${pathText}`;
+                }
+
+                const daysRemaining = Number.isFinite(certificate.daysRemaining)
+                    ? `${certificate.daysRemaining} day(s)`
+                    : 'Unknown';
+                const expiryState = certificate.expired ? 'Expired' : 'Valid';
+                const altNames = certificate.subjectAltName || 'None recorded';
+
+                return [
+                    `Domain: ${certificate.domain}`,
+                    `Status: ${expiryState}`,
+                    `Expires: ${certificate.validTo}`,
+                    `Days remaining: ${daysRemaining}`,
+                    `Valid from: ${certificate.validFrom}`,
+                    '',
+                    `Subject:`,
+                    certificate.subject || 'Unknown',
+                    '',
+                    `Issuer:`,
+                    certificate.issuer || 'Unknown',
+                    '',
+                    `Subject alternative names:`,
+                    altNames,
+                    '',
+                    `Serial number: ${certificate.serialNumber || 'Unknown'}`,
+                    `SHA-256 fingerprint: ${certificate.fingerprint256 || 'Unknown'}`,
+                    '',
+                    `Certificate path: ${certificate.certificatePath}`,
+                    `Key path: ${certificate.keyPath}`,
+                ].join('\n');
+            }
+
             $('.ssl-manage-action').on('click', function(e) {
                 e.preventDefault();
                 if (!currentSslManageSite) return;
@@ -1779,8 +1820,29 @@
                 if (action === 'view') {
                     $('#sslManageModal').addClass('hidden');
                     $('#terminalModal').removeClass('hidden');
-                    $('#terminalStatus').html(`<span class="text-blue-500">ℹ</span> SSL certificate details for ${currentSslManageSite.domain}.`);
-                    $('#terminalLog').text(currentSslManageSite.acmeLog || "No SSL certificate details have been recorded yet.");
+                    $('#terminalStatus').html(`<span class="animate-pulse text-blue-500">●</span> Loading SSL certificate details for ${currentSslManageSite.domain}...`);
+                    $('#terminalLog').text("Reading certificate metadata from the server...");
+
+                    $.ajax({
+                        url: `${API_BASE}/${id}/ssl`,
+                        type: 'GET',
+                        success: function(res) {
+                            $('#terminalStatus').html(`<span class="text-blue-500">ℹ</span> SSL certificate details for ${currentSslManageSite.domain}.`);
+                            $('#terminalLog').text(formatSslCertificateDetails(res.certificate));
+                        },
+                        error: function(xhr, status, error) {
+                            $('#terminalStatus').html(`<span class="text-red-500">✖</span> Could not load SSL certificate details.`);
+                            $('#terminalLog').text(getErrorMessage(xhr, error));
+                        }
+                    });
+                    return;
+                }
+
+                if (action === 'logs') {
+                    $('#sslManageModal').addClass('hidden');
+                    $('#terminalModal').removeClass('hidden');
+                    $('#terminalStatus').html(`<span class="text-purple-400">ℹ</span> SSL logs for ${currentSslManageSite.domain}.`);
+                    $('#terminalLog').text(currentSslManageSite.acmeLog || "No SSL logs have been recorded yet.");
                     return;
                 }
 

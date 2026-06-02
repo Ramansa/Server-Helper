@@ -10,6 +10,7 @@ const {
   reloadNginx,
   provisionStaticDir,
   runAcme,
+  getSslCertificateDetails,
 } = require('../nginx');
 const { sendTextError } = require('../utils/http');
 
@@ -130,15 +131,28 @@ async function sslSiteHandler(req, res) {
     return;
   }
 
+  const action = req.method === 'GET' ? 'view' : body.action;
+  const readOnlyActions = new Set(['view']);
+  const writeActions = new Set(['install', 'renew', 'remove', 'reinstall']);
+  if (!readOnlyActions.has(action) && !writeActions.has(action)) {
+    sendTextError(res, 400, `unknown SSL action: ${action || 'none'}`);
+    return;
+  }
+
   let domain;
+  let siteSnapshot;
   try {
     await withSitesLock(async () => {
       const site = sites.find((entry) => entry.id === id);
       if (!site) {
         throw createNotFoundError('Site not found');
       }
-      site.acmeStatus = 'issuing';
       domain = site.domain;
+      siteSnapshot = { ...site };
+      if (writeActions.has(action)) {
+        site.acmeStatus = 'issuing';
+        await saveSites();
+      }
     });
   } catch (error) {
     if (error.status === 404) {
@@ -149,7 +163,17 @@ async function sslSiteHandler(req, res) {
     return;
   }
 
-  const { output, error } = await runAcme(domain, body.action);
+  if (action === 'view') {
+    try {
+      const certificate = await getSslCertificateDetails(domain);
+      res.json({ success: true, site: siteSnapshot, certificate });
+    } catch (error) {
+      sendTextError(res, 500, error.message);
+    }
+    return;
+  }
+
+  const { output, error } = await runAcme(domain, action);
 
   try {
     await withSitesLock(async () => {
@@ -164,7 +188,7 @@ async function sslSiteHandler(req, res) {
         await saveSites();
         return;
       }
-      if (body.action === 'remove') {
+      if (action === 'remove') {
         sites[index].acmeStatus = 'none';
         sites[index].ssl = false;
       } else {
