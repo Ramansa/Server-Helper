@@ -89,7 +89,7 @@
         <header class="h-20 flex items-center justify-between px-8 bg-slate-900 border-b border-slate-800 shrink-0">
             <div>
                 <h2 class="text-2xl font-semibold">Virtual Hosts</h2>
-                <p class="text-sm text-slate-400">Manage Nginx configurations & ACME Let's Encrypt certificates.</p>
+                <p class="text-sm text-slate-400">Manage Nginx configurations & SSL certificates.</p>
             </div>
             <div class="flex items-center gap-3">
                 <div id="currentUser" class="hidden text-sm text-slate-400"></div>
@@ -133,7 +133,7 @@
                     </div>
                     <div>
                         <div id="statSsl" class="text-2xl font-bold">0</div>
-                        <div class="text-sm text-slate-400">SSL Active (acme.sh)</div>
+                        <div class="text-sm text-slate-400">SSL Active</div>
                     </div>
                 </div>
             </div>
@@ -147,7 +147,7 @@
                             <th class="p-4">Type</th>
                             <th class="p-4 hidden md:table-cell">Target</th>
                             <th class="p-4 text-center">Nginx Status</th>
-                            <th class="p-4">acme.sh SSL Status</th>
+                            <th class="p-4">SSL Status</th>
                             <th class="p-4 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -286,7 +286,43 @@
         </div>
     </div>
 
-    <!-- Terminal Action Modal (for acme.sh logging) -->
+    <!-- SSL Management Modal -->
+    <div id="sslManageModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden transition-opacity">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+            <div class="flex items-center justify-between p-6 border-b border-slate-800 bg-slate-950">
+                <div>
+                    <h3 class="text-lg font-semibold flex items-center gap-2">
+                        <i data-lucide="shield" class="w-5 h-5 text-emerald-500"></i>
+                        SSL for <span id="sslManageDomain">site</span>
+                    </h3>
+                    <p id="sslManageStatus" class="text-xs text-slate-400 mt-1">Review and manage this site's SSL certificate.</p>
+                </div>
+                <button type="button" class="close-ssl-manage text-slate-400 hover:text-white transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-3">
+                <button type="button" class="ssl-manage-action w-full flex items-center justify-between gap-3 bg-slate-800 hover:bg-slate-700 text-slate-100 px-4 py-3 rounded-lg text-sm font-medium transition-colors" data-action="view">
+                    <span class="flex items-center gap-2"><i data-lucide="file-search" class="w-4 h-4 text-blue-400"></i> View cert</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                </button>
+                <button type="button" class="ssl-manage-action w-full flex items-center justify-between gap-3 bg-slate-800 hover:bg-slate-700 text-slate-100 px-4 py-3 rounded-lg text-sm font-medium transition-colors" data-action="renew">
+                    <span class="flex items-center gap-2"><i data-lucide="refresh-cw" class="w-4 h-4 text-emerald-400"></i> Renew</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                </button>
+                <button type="button" class="ssl-manage-action w-full flex items-center justify-between gap-3 bg-slate-800 hover:bg-slate-700 text-slate-100 px-4 py-3 rounded-lg text-sm font-medium transition-colors" data-action="reinstall">
+                    <span class="flex items-center gap-2"><i data-lucide="rotate-cw" class="w-4 h-4 text-amber-400"></i> Re-install</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                </button>
+                <button type="button" class="ssl-manage-action w-full flex items-center justify-between gap-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 px-4 py-3 rounded-lg text-sm font-medium transition-colors" data-action="remove">
+                    <span class="flex items-center gap-2"><i data-lucide="trash-2" class="w-4 h-4"></i> Remove</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-red-400/70"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Terminal Action Modal (for SSL logging) -->
     <div id="terminalModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden transition-opacity">
         <div class="bg-slate-950 border border-slate-800 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
             <div class="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-950">
@@ -296,7 +332,7 @@
                         <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
                         <span class="w-3 h-3 rounded-full bg-green-500"></span>
                     </div>
-                    <span class="font-mono text-sm ml-2 text-slate-300">acme.sh execution terminal</span>
+                    <span class="font-mono text-sm ml-2 text-slate-300">SSL execution terminal</span>
                 </div>
                 <button type="button" id="closeTerminalBtn" class="text-slate-400 hover:text-white transition-colors">
                     <i data-lucide="x" class="w-5 h-5"></i>
@@ -305,7 +341,7 @@
 
             <div class="flex-1 bg-black p-6 font-mono text-xs text-slate-300 overflow-auto whitespace-pre-wrap select-text h-[400px]">
                 <div id="terminalStatus" class="mb-4 text-yellow-400 flex items-center gap-2">
-                    <span class="animate-pulse">●</span> Executing Let's Encrypt routine...
+                    <span class="animate-pulse">●</span> Executing SSL routine...
                 </div>
                 <div id="terminalLog" class="text-slate-400">Loading terminal log stream...</div>
             </div>
@@ -503,6 +539,8 @@
             let currentEditingSite = null;
             let userEditedTarget = false;
             let useRawConfig = false;
+            let currentSites = [];
+            let currentSslManageSite = null;
 
             // Track active file manager context state
             let currentFmSiteId = null;
@@ -666,6 +704,7 @@
             }
 
             function renderTable(sites) {
+                currentSites = Array.isArray(sites) ? sites : [];
                 const tbody = $('#sitesTableBody');
                 tbody.empty();
 
@@ -718,26 +757,30 @@
                     }
 
                     let acmeStatusHtml = "";
+                    const sslManageLink = `<button class="btn-ssl-manage text-blue-400 text-[10px] font-medium hover:underline" data-id="${site.id}">Manage</button>`;
                     if (site.acmeStatus === "issuing") {
-                        acmeStatusHtml = `<span class="text-xs text-yellow-400 font-medium flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-ping"></span> Issuing...</span>`;
+                        acmeStatusHtml = `<div class="flex items-center gap-2">
+                            <span class="inline-flex items-center gap-1.5 text-xs text-yellow-400 font-medium"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-ping"></span> SSL Status</span>
+                            <span class="text-slate-600">|</span>
+                            ${sslManageLink}
+                        </div>`;
                     } else if (site.acmeStatus === "active") {
-                        acmeStatusHtml = `<div class="flex flex-col gap-1">
-                            <span class="text-xs text-emerald-400 font-medium flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> acme.sh (Active)</span>
-                            <div class="flex gap-1.5 text-[10px]">
-                                <button class="btn-ssl text-blue-400 hover:underline" data-id="${site.id}" data-action="renew">Renew</button><span class="text-slate-600">|</span>
-                                <button class="btn-ssl text-red-400 hover:underline" data-id="${site.id}" data-action="remove">Remove</button><span class="text-slate-600">|</span>
-                                <button class="btn-ssl text-slate-400 hover:underline" data-id="${site.id}" data-action="reinstall">Re-install</button>
-                            </div>
+                        acmeStatusHtml = `<div class="flex items-center gap-2">
+                            <span class="inline-flex items-center gap-1 text-xs text-emerald-400 font-medium"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> SSL Status</span>
+                            <span class="text-slate-600">|</span>
+                            ${sslManageLink}
                         </div>`;
                     } else if (site.acmeStatus === "failed") {
-                        acmeStatusHtml = `<div class="flex flex-col gap-1">
-                            <span class="text-xs text-red-400 font-medium flex items-center gap-1"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Issue Failed</span>
-                            <button class="btn-ssl text-blue-400 text-[10px] hover:underline text-left" data-id="${site.id}" data-action="install">Retry Install</button>
+                        acmeStatusHtml = `<div class="flex items-center gap-2">
+                            <span class="inline-flex items-center gap-1 text-xs text-red-400 font-medium"><i data-lucide="x-circle" class="w-3.5 h-3.5"></i> SSL Status</span>
+                            <span class="text-slate-600">|</span>
+                            ${sslManageLink}
                         </div>`;
                     } else {
-                        acmeStatusHtml = `<div class="flex flex-col gap-1">
-                            <span class="text-xs text-slate-400">No SSL Certificate</span>
-                            <button class="btn-ssl text-emerald-400 font-medium text-[10px] hover:underline text-left" data-id="${site.id}" data-action="install">+ Request with acme.sh</button>
+                        acmeStatusHtml = `<div class="flex items-center gap-2">
+                            <span class="inline-flex items-center gap-1 text-xs text-slate-400 font-medium"><i data-lucide="x-circle" class="w-3.5 h-3.5"></i> SSL Status</span>
+                            <span class="text-slate-600">|</span>
+                            ${sslManageLink}
                         </div>`;
                     }
 
@@ -1691,16 +1734,49 @@
                 return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
             }
 
-            // --- SSL / Let's Encrypt / acme.sh Actions Interface ---
-            $('#sitesTableBody').on('click', '.btn-ssl', function(e) {
+            // --- SSL Actions Interface ---
+            $('#sitesTableBody').on('click', '.btn-ssl-manage', function(e) {
                 e.preventDefault();
                 const id = $(this).data('id');
+                currentSslManageSite = currentSites.find(function(site) { return site.id === id; });
+                if (!currentSslManageSite) return;
+
+                const isActive = currentSslManageSite.acmeStatus === "active";
+                const isFailed = currentSslManageSite.acmeStatus === "failed";
+                const statusClass = isActive ? 'text-emerald-400' : (isFailed ? 'text-red-400' : 'text-slate-400');
+                const statusIcon = isActive ? 'check-circle' : 'x-circle';
+                const statusText = isActive ? 'SSL is active.' : (isFailed ? 'SSL needs attention.' : 'SSL is not installed.');
+
+                $('#sslManageDomain').text(currentSslManageSite.domain);
+                $('#sslManageStatus').html(`<span class="inline-flex items-center gap-1 ${statusClass}"><i data-lucide="${statusIcon}" class="w-3.5 h-3.5"></i>${statusText}</span>`);
+                $('#sslManageModal').removeClass('hidden');
+                if (window.lucide) window.lucide.createIcons();
+            });
+
+            $('.close-ssl-manage').click(function() {
+                $('#sslManageModal').addClass('hidden');
+            });
+
+            $('.ssl-manage-action').on('click', function(e) {
+                e.preventDefault();
+                if (!currentSslManageSite) return;
+
+                const id = currentSslManageSite.id;
                 const action = $(this).data('action');
 
-                if (!confirm("Are you sure you want to execute this acme.sh action?")) return;
+                if (action === 'view') {
+                    $('#sslManageModal').addClass('hidden');
+                    $('#terminalModal').removeClass('hidden');
+                    $('#terminalStatus').html(`<span class="text-blue-500">ℹ</span> SSL certificate details for ${currentSslManageSite.domain}.`);
+                    $('#terminalLog').text(currentSslManageSite.acmeLog || "No SSL certificate details have been recorded yet.");
+                    return;
+                }
 
+                if (!confirm("Are you sure you want to execute this SSL action?")) return;
+
+                $('#sslManageModal').addClass('hidden');
                 $('#terminalModal').removeClass('hidden');
-                $('#terminalStatus').html(`<span class="animate-pulse text-yellow-500">●</span> Running acme.sh [${action.toUpperCase()}] against your environment...`);
+                $('#terminalStatus').html(`<span class="animate-pulse text-yellow-500">●</span> Running SSL [${action.toUpperCase()}] against your environment...`);
                 $('#terminalLog').text("Contacting backend API, initiating request...\nThis can take 30-40 seconds for HTTP validation loops.");
 
                 $.ajax({
@@ -1709,12 +1785,12 @@
                     contentType: 'application/json',
                     data: JSON.stringify({ action: action }),
                     success: function(res) {
-                        $('#terminalStatus').html(`<span class="text-emerald-500">✔</span> acme.sh successfully processed request.`);
+                        $('#terminalStatus').html(`<span class="text-emerald-500">✔</span> SSL successfully processed request.`);
                         $('#terminalLog').text(res.output);
                         getSites();
                     },
                     error: function(xhr, status, error) {
-                        $('#terminalStatus').html(`<span class="text-red-500">✖</span> acme.sh execution failed.`);
+                        $('#terminalStatus').html(`<span class="text-red-500">✖</span> SSL execution failed.`);
                         let logText = "";
                         try {
                             const errObj = JSON.parse(xhr.responseText);

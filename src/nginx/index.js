@@ -288,7 +288,7 @@ async function writeNginxMainConfig(content) {
 
 async function runAcme(domain, action) {
   if (config.isMockMode) {
-    return { output: `[Mock] acme.sh '${action}' for ${domain}`, error: null };
+    return { output: `[Mock] SSL '${action}' for ${domain}`, error: null };
   }
 
   let args;
