@@ -147,7 +147,7 @@
                             <th class="p-4">Type</th>
                             <th class="p-4 hidden md:table-cell">Target</th>
                             <th class="p-4 text-center">Nginx Status</th>
-                            <th class="p-4">SSL Status</th>
+                            <th class="p-4 text-center">SSL</th>
                             <th class="p-4 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -304,6 +304,10 @@
             <div class="p-6 space-y-3">
                 <button type="button" class="ssl-manage-action w-full flex items-center justify-between gap-3 bg-slate-800 hover:bg-slate-700 text-slate-100 px-4 py-3 rounded-lg text-sm font-medium transition-colors" data-action="view">
                     <span class="flex items-center gap-2"><i data-lucide="file-search" class="w-4 h-4 text-blue-400"></i> View cert</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
+                </button>
+                <button type="button" class="ssl-manage-action w-full flex items-center justify-between gap-3 bg-slate-800 hover:bg-slate-700 text-slate-100 px-4 py-3 rounded-lg text-sm font-medium transition-colors" data-action="logs">
+                    <span class="flex items-center gap-2"><i data-lucide="scroll-text" class="w-4 h-4 text-purple-400"></i> View logs</span>
                     <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500"></i>
                 </button>
                 <button type="button" class="ssl-manage-action w-full flex items-center justify-between gap-3 bg-slate-800 hover:bg-slate-700 text-slate-100 px-4 py-3 rounded-lg text-sm font-medium transition-colors" data-action="renew">
@@ -756,33 +760,45 @@
                         customBadge = `<span class="inline-flex items-center gap-1 bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded-full" title="Uses Raw Custom Configuration"><i data-lucide="settings" class="w-3 h-3"></i> Custom</span>`;
                     }
 
-                    let acmeStatusHtml = "";
-                    const sslManageLink = `<button class="btn-ssl-manage text-blue-400 text-[10px] font-medium hover:underline" data-id="${site.id}">Manage</button>`;
-                    if (site.acmeStatus === "issuing") {
-                        acmeStatusHtml = `<div class="flex items-center gap-2">
-                            <span class="inline-flex items-center gap-1.5 text-xs text-yellow-400 font-medium"><span class="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-ping"></span> SSL Status</span>
-                            <span class="text-slate-600">|</span>
-                            ${sslManageLink}
-                        </div>`;
-                    } else if (site.acmeStatus === "active") {
-                        acmeStatusHtml = `<div class="flex items-center gap-2">
-                            <span class="inline-flex items-center gap-1 text-xs text-emerald-400 font-medium"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> SSL Status</span>
-                            <span class="text-slate-600">|</span>
-                            ${sslManageLink}
-                        </div>`;
-                    } else if (site.acmeStatus === "failed") {
-                        acmeStatusHtml = `<div class="flex items-center gap-2">
-                            <span class="inline-flex items-center gap-1 text-xs text-red-400 font-medium"><i data-lucide="x-circle" class="w-3.5 h-3.5"></i> SSL Status</span>
-                            <span class="text-slate-600">|</span>
-                            ${sslManageLink}
-                        </div>`;
-                    } else {
-                        acmeStatusHtml = `<div class="flex items-center gap-2">
-                            <span class="inline-flex items-center gap-1 text-xs text-slate-400 font-medium"><i data-lucide="x-circle" class="w-3.5 h-3.5"></i> SSL Status</span>
-                            <span class="text-slate-600">|</span>
-                            ${sslManageLink}
-                        </div>`;
-                    }
+                    const sslManageLink = `<button class="btn-ssl-manage text-blue-400 text-xs font-medium hover:underline" data-id="${site.id}">Manage</button>`;
+                    const sslIconState = site.acmeStatus === "active" || site.ssl
+                        ? {
+                            icon: 'check-circle',
+                            color: 'text-emerald-400',
+                            bg: 'bg-emerald-500/10',
+                            border: 'border-emerald-500/20',
+                            label: 'SSL active',
+                        }
+                        : site.acmeStatus === "issuing"
+                            ? {
+                                icon: 'loader-circle',
+                                color: 'text-yellow-400',
+                                bg: 'bg-yellow-500/10',
+                                border: 'border-yellow-500/20',
+                                label: 'SSL issuing',
+                            }
+                            : site.acmeStatus === "failed"
+                                ? {
+                                    icon: 'x-circle',
+                                    color: 'text-red-400',
+                                    bg: 'bg-red-500/10',
+                                    border: 'border-red-500/20',
+                                    label: 'SSL failed',
+                                }
+                                : {
+                                    icon: 'x-circle',
+                                    color: 'text-slate-400',
+                                    bg: 'bg-slate-700/50',
+                                    border: 'border-slate-600',
+                                    label: 'SSL not installed',
+                                };
+                    const spinClass = site.acmeStatus === "issuing" ? 'animate-spin' : '';
+                    const acmeStatusHtml = `<div class="flex flex-col items-center gap-1.5">
+                        <button class="btn-ssl-manage inline-flex h-11 w-11 items-center justify-center rounded-full border ${sslIconState.bg} ${sslIconState.border} ${sslIconState.color} transition-colors hover:bg-slate-700" data-id="${site.id}" title="${sslIconState.label}" aria-label="Manage SSL for ${site.domain}">
+                            <i data-lucide="${sslIconState.icon}" class="h-7 w-7 ${spinClass}"></i>
+                        </button>
+                        ${sslManageLink}
+                    </div>`;
 
                     const row = `
                         <tr class="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors group">
@@ -814,7 +830,7 @@
                                     ${statusText}
                                 </button>
                             </td>
-                            <td class="p-4">
+                            <td class="p-4 text-center">
                                 ${acmeStatusHtml}
                             </td>
                             <td class="p-4 text-right">
@@ -1738,7 +1754,7 @@
             $('#sitesTableBody').on('click', '.btn-ssl-manage', function(e) {
                 e.preventDefault();
                 const id = $(this).data('id');
-                currentSslManageSite = currentSites.find(function(site) { return site.id === id; });
+                currentSslManageSite = currentSites.find(function(site) { return String(site.id) === String(id); });
                 if (!currentSslManageSite) return;
 
                 const isActive = currentSslManageSite.acmeStatus === "active";
@@ -1757,6 +1773,43 @@
                 $('#sslManageModal').addClass('hidden');
             });
 
+
+            function formatSslCertificateDetails(certificate) {
+                if (!certificate || !certificate.exists) {
+                    const pathText = certificate && certificate.certificatePath ? `\nCertificate path: ${certificate.certificatePath}` : '';
+                    return `No SSL certificate file was found for this site.${pathText}`;
+                }
+
+                const daysRemaining = Number.isFinite(certificate.daysRemaining)
+                    ? `${certificate.daysRemaining} day(s)`
+                    : 'Unknown';
+                const expiryState = certificate.expired ? 'Expired' : 'Valid';
+                const altNames = certificate.subjectAltName || 'None recorded';
+
+                return [
+                    `Domain: ${certificate.domain}`,
+                    `Status: ${expiryState}`,
+                    `Expires: ${certificate.validTo}`,
+                    `Days remaining: ${daysRemaining}`,
+                    `Valid from: ${certificate.validFrom}`,
+                    '',
+                    `Subject:`,
+                    certificate.subject || 'Unknown',
+                    '',
+                    `Issuer:`,
+                    certificate.issuer || 'Unknown',
+                    '',
+                    `Subject alternative names:`,
+                    altNames,
+                    '',
+                    `Serial number: ${certificate.serialNumber || 'Unknown'}`,
+                    `SHA-256 fingerprint: ${certificate.fingerprint256 || 'Unknown'}`,
+                    '',
+                    `Certificate path: ${certificate.certificatePath}`,
+                    `Key path: ${certificate.keyPath}`,
+                ].join('\n');
+            }
+
             $('.ssl-manage-action').on('click', function(e) {
                 e.preventDefault();
                 if (!currentSslManageSite) return;
@@ -1767,8 +1820,29 @@
                 if (action === 'view') {
                     $('#sslManageModal').addClass('hidden');
                     $('#terminalModal').removeClass('hidden');
-                    $('#terminalStatus').html(`<span class="text-blue-500">ℹ</span> SSL certificate details for ${currentSslManageSite.domain}.`);
-                    $('#terminalLog').text(currentSslManageSite.acmeLog || "No SSL certificate details have been recorded yet.");
+                    $('#terminalStatus').html(`<span class="animate-pulse text-blue-500">●</span> Loading SSL certificate details for ${currentSslManageSite.domain}...`);
+                    $('#terminalLog').text("Reading certificate metadata from the server...");
+
+                    $.ajax({
+                        url: `${API_BASE}/${id}/ssl`,
+                        type: 'GET',
+                        success: function(res) {
+                            $('#terminalStatus').html(`<span class="text-blue-500">ℹ</span> SSL certificate details for ${currentSslManageSite.domain}.`);
+                            $('#terminalLog').text(formatSslCertificateDetails(res.certificate));
+                        },
+                        error: function(xhr, status, error) {
+                            $('#terminalStatus').html(`<span class="text-red-500">✖</span> Could not load SSL certificate details.`);
+                            $('#terminalLog').text(getErrorMessage(xhr, error));
+                        }
+                    });
+                    return;
+                }
+
+                if (action === 'logs') {
+                    $('#sslManageModal').addClass('hidden');
+                    $('#terminalModal').removeClass('hidden');
+                    $('#terminalStatus').html(`<span class="text-purple-400">ℹ</span> SSL logs for ${currentSslManageSite.domain}.`);
+                    $('#terminalLog').text(currentSslManageSite.acmeLog || "No SSL logs have been recorded yet.");
                     return;
                 }
 
